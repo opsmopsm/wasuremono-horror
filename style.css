@@ -1,0 +1,415 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  user-select: none;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #030407;
+  color: #e4dfd1;
+  font-family: "Yu Mincho", "Hiragino Mincho ProN", "MS PMincho", serif;
+}
+
+#game-canvas {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  display: block;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+/* ロッカー隙間（通気スリット）視界オーバーレイ */
+#locker-slit-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+}
+
+.slit-bar.solid {
+  width: 100%;
+  background: linear-gradient(180deg, #070908 0%, #121715 50%, #060807 100%);
+  box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.9), inset 0 -2px 5px rgba(0, 0, 0, 0.9);
+}
+
+.slit-bar.solid.top {
+  flex: 0 0 20vh;
+}
+
+.slit-bar.solid.mid {
+  flex: 0 0 6.5vh;
+  border-top: 2px solid #1d2522;
+  border-bottom: 2px solid #040505;
+}
+
+.slit-bar.solid.bottom {
+  flex: 1 1 auto;
+  border-top: 2px solid #1d2522;
+}
+
+.slit-bar.gap {
+  flex: 0 0 7.2vh;
+  width: 100%;
+  background: transparent;
+  box-shadow: inset 0 6px 10px rgba(0, 0, 0, 0.72), inset 0 -6px 10px rgba(0, 0, 0, 0.72);
+}
+
+.locker-side {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  width: 11vw;
+  background: linear-gradient(90deg, #050706, #0d1210);
+  z-index: 5;
+}
+
+.locker-side.left {
+  left: 0;
+  border-right: 3px solid #1c2320;
+}
+
+.locker-side.right {
+  right: 0;
+  border-left: 3px solid #1c2320;
+  background: linear-gradient(270deg, #050706, #0d1210);
+}
+
+#locker-hint {
+  position: fixed;
+  top: 84px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 12;
+  font-family: "Yu Gothic", sans-serif;
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  color: #dfd9c8;
+  background: rgba(8, 10, 12, 0.82);
+  border: 1px solid rgba(180, 175, 160, 0.45);
+  padding: 6px 16px;
+}
+
+/* PS1 / CRT スキャンライン */
+#scanlines {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 5;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0) 0px,
+    rgba(0, 0, 0, 0) 2px,
+    rgba(0, 0, 0, 0.22) 3px,
+    rgba(0, 0, 0, 0.22) 4px
+  );
+}
+
+#vignette {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 6;
+  background: radial-gradient(circle, rgba(0, 0, 0, 0) 48%, rgba(0, 0, 0, 0.78) 100%);
+}
+
+#danger-vignette {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 7;
+  opacity: 0;
+  transition: opacity 0.12s linear;
+  background: radial-gradient(circle, rgba(160, 0, 16, 0) 35%, rgba(165, 8, 18, 0.78) 100%);
+}
+
+#flash-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 8;
+  opacity: 0;
+  transition: opacity 0.2s ease-out;
+}
+
+.hidden {
+  display: none !important;
+}
+
+/* HUD */
+#hud {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 10;
+  font-family: "Yu Gothic", "Meiryo", sans-serif;
+}
+
+#top-left {
+  position: absolute;
+  top: 16px;
+  left: 18px;
+  background: rgba(8, 10, 14, 0.68);
+  border-left: 3px solid #9e1b24;
+  padding: 8px 14px;
+}
+
+#area-label {
+  font-size: 16px;
+  font-weight: bold;
+  letter-spacing: 0.08em;
+  color: #f0ebe0;
+}
+
+#objective-label {
+  margin-top: 4px;
+  font-size: 13px;
+  color: #d7b6a8;
+}
+
+#top-right {
+  position: absolute;
+  top: 16px;
+  right: 18px;
+  text-align: right;
+  font-size: 12px;
+  color: #b7b3a8;
+  background: rgba(8, 10, 14, 0.58);
+  padding: 8px 12px;
+}
+
+#quality-badge {
+  color: #e6dfd0;
+  font-weight: bold;
+  margin-bottom: 3px;
+}
+
+#crosshair {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 5px;
+  height: 5px;
+  margin: -2.5px 0 0 -2.5px;
+  border-radius: 50%;
+  background: rgba(240, 235, 220, 0.75);
+  box-shadow: 0 0 4px rgba(0, 0, 0, 0.9);
+}
+
+#interact-prompt {
+  position: absolute;
+  top: 56%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(10, 10, 12, 0.82);
+  border: 1px solid rgba(220, 210, 190, 0.45);
+  padding: 6px 14px;
+  font-size: 14px;
+  color: #f5f0e2;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+
+#interact-prompt.visible {
+  opacity: 1;
+}
+
+#subtitle {
+  position: absolute;
+  bottom: 58px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(740px, 88vw);
+  text-align: left;
+  background: rgba(6, 7, 10, 0.9);
+  border: 1px solid rgba(185, 175, 155, 0.35);
+  border-left: 4px solid #a81f29;
+  padding: 13px 22px 15px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.85);
+  font-family: "Yu Mincho", "Hiragino Mincho ProN", serif;
+  opacity: 0;
+  transition: opacity 0.22s ease;
+}
+
+#subtitle.visible {
+  opacity: 1;
+}
+
+#subtitle.ghost-voice {
+  background: rgba(24, 4, 7, 0.92);
+  border-color: rgba(190, 20, 32, 0.7);
+  border-left-color: #d91c2b;
+}
+
+#speaker-name {
+  font-family: "Yu Gothic", "Meiryo", sans-serif;
+  font-size: 12px;
+  font-weight: bold;
+  letter-spacing: 0.14em;
+  color: #d99b8c;
+  margin-bottom: 5px;
+}
+
+#subtitle.ghost-voice #speaker-name {
+  color: #ff4757;
+}
+
+#dialogue-text {
+  font-size: 16px;
+  line-height: 1.65;
+  color: #f4efe4;
+}
+
+#subtitle.ghost-voice #dialogue-text {
+  color: #ffd5d8;
+  letter-spacing: 0.08em;
+}
+
+#bottom-left {
+  position: absolute;
+  bottom: 18px;
+  left: 18px;
+  width: 210px;
+}
+
+.bar-label {
+  font-size: 11px;
+  color: #bfb9ac;
+  margin-bottom: 4px;
+}
+
+#stamina-bar {
+  width: 100%;
+  height: 8px;
+  background: rgba(20, 22, 26, 0.85);
+  border: 1px solid #59554d;
+}
+
+#stamina-fill {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, #912028, #d6cfc0);
+}
+
+/* 見取り図モーダル */
+#map-modal {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.65);
+  z-index: 15;
+  pointer-events: none;
+}
+
+#map-canvas {
+  border: 2px solid #757063;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.9);
+  max-width: 92vw;
+  height: auto;
+}
+
+/* タイトル・ポーズ・エンディング画面 */
+.overlay-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at center, rgba(20, 8, 12, 0.72), rgba(3, 4, 7, 0.94));
+}
+
+.title-card {
+  max-width: 580px;
+  width: 90vw;
+  padding: 36px 34px;
+  background: rgba(10, 10, 13, 0.9);
+  border: 1px solid #4a3f3a;
+  box-shadow: 0 0 50px rgba(0, 0, 0, 0.95);
+  text-align: center;
+}
+
+.title-card.small {
+  max-width: 400px;
+}
+
+.title-card.danger {
+  border-color: #8f1620;
+}
+
+.eyebrow {
+  font-family: "Yu Gothic", sans-serif;
+  font-size: 11px;
+  letter-spacing: 0.24em;
+  color: #b4343e;
+  margin-bottom: 10px;
+}
+
+h1 {
+  font-size: 52px;
+  letter-spacing: 0.25em;
+  color: #f3eee3;
+  text-shadow: 0 0 18px rgba(175, 18, 30, 0.65);
+  margin-bottom: 18px;
+  padding-left: 0.25em;
+}
+
+h2 {
+  font-size: 32px;
+  letter-spacing: 0.18em;
+  margin-bottom: 16px;
+  color: #f3eee3;
+}
+
+.story-lead {
+  font-size: 15px;
+  line-height: 1.85;
+  color: #cbc5b8;
+  margin-bottom: 22px;
+  white-space: pre-line;
+}
+
+.controls-box {
+  font-family: "Yu Gothic", sans-serif;
+  font-size: 12.5px;
+  line-height: 1.9;
+  color: #b8b2a4;
+  background: rgba(24, 24, 28, 0.7);
+  border: 1px solid #353330;
+  padding: 12px 16px;
+  margin-bottom: 24px;
+  text-align: left;
+}
+
+.controls-box strong {
+  color: #efe9db;
+}
+
+.retro-btn {
+  cursor: pointer;
+  background: #6f1119;
+  color: #f4efe6;
+  border: 1px solid #b53a44;
+  padding: 12px 34px;
+  font-family: "Yu Mincho", serif;
+  font-size: 17px;
+  letter-spacing: 0.16em;
+  transition: background 0.15s ease, transform 0.1s ease;
+}
+
+.retro-btn:hover {
+  background: #921822;
+}
+
+.retro-btn:active {
+  transform: translateY(1px);
+}

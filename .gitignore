@@ -1,0 +1,10 @@
+# Dependencies
+node_modules/
+
+# Unreal Engine prototype (large binary assets & cache)
+WasuremonoUE/
+
+# Logs & OS files
+*.log
+.DS_Store
+Thumbs.db

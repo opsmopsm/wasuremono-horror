@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>忘れ物 — PS1風 夜の校舎ホラー</title>
+  <link rel="stylesheet" href="./style.css" />
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "./node_modules/three/build/three.module.js"
+      }
+    }
+  </script>
+</head>
+<body>
+  <canvas id="game-canvas"></canvas>
+
+  <!-- PS1 / CRT オーバーレイ -->
+  <div id="locker-slit-overlay" class="hidden">
+    <div class="slit-bar solid top"></div>
+    <div class="slit-bar gap"></div>
+    <div class="slit-bar solid mid"></div>
+    <div class="slit-bar gap"></div>
+    <div class="slit-bar solid mid"></div>
+    <div class="slit-bar gap"></div>
+    <div class="slit-bar solid mid"></div>
+    <div class="slit-bar gap"></div>
+    <div class="slit-bar solid bottom"></div>
+    <div class="locker-side left"></div>
+    <div class="locker-side right"></div>
+    <div id="locker-hint">ロッカー内に隠れています — マウスで隙間から覗く ／ [E] 外に出る</div>
+  </div>
+  <div id="scanlines"></div>
+  <div id="vignette"></div>
+  <div id="danger-vignette"></div>
+  <div id="flash-overlay"></div>
+
+  <!-- プレイ中HUD -->
+  <div id="hud" class="hidden">
+    <div id="top-left">
+      <div id="area-label">1F メイン昇降口</div>
+      <div id="objective-label">目標: 2F 2年A組で忘れ物を探す</div>
+    </div>
+
+    <div id="top-right">
+      <div id="quality-badge">画質: PS1風 [P]</div>
+      <div class="hint-line">[M] 見取り図 / [F] 懐中電灯 / [C] しゃがむ / [E] 隠れる・話す</div>
+    </div>
+
+    <div id="crosshair"></div>
+    <div id="interact-prompt"></div>
+    <div id="subtitle">
+      <div id="speaker-name"></div>
+      <div id="dialogue-text"></div>
+    </div>
+
+    <div id="bottom-left">
+      <div class="bar-label">スタミナ [Shiftで走る]</div>
+      <div id="stamina-bar"><div id="stamina-fill"></div></div>
+    </div>
+  </div>
+
+  <!-- 校舎見取り図モーダル -->
+  <div id="map-modal" class="hidden">
+    <canvas id="map-canvas" width="660" height="420"></canvas>
+  </div>
+
+  <!-- タイトル画面 -->
+  <div id="title-screen" class="overlay-screen">
+    <div class="title-card">
+      <p class="eyebrow">PS1 STYLE SHORT HORROR PROTOTYPE</p>
+      <h1>忘 れ 物</h1>
+      <p class="story-lead">
+        吹奏楽部の片付けで遅くなった帰り道。<br />
+        友達には先に帰ってもらい、一人で夜の校舎へ忘れ物を取りに戻った。<br />
+        教室にあるはずのポーチは、そこになかった――。
+      </p>
+      <div class="controls-box">
+        <div><strong>WASD</strong>：移動　／　<strong>マウス</strong>：視点</div>
+        <div><strong>Shift</strong>：走る　／　<strong>C</strong>：しゃがむ（見つかりにくくなる）</div>
+        <div><strong>E</strong>：ドア開閉・ロッカーに隠れる・話す・調べる・取る</div>
+        <div><strong>F</strong>：懐中電灯 ON/OFF　／　<strong>M</strong>：校舎見取り図　／　<strong>P</strong>：PS1画質切替</div>
+      </div>
+      <button id="start-btn" class="retro-btn">校舎に入る</button>
+    </div>
+  </div>
+
+  <!-- ポーズ画面 -->
+  <div id="pause-screen" class="overlay-screen hidden">
+    <div class="title-card small">
+      <h2>一時停止</h2>
+      <p class="story-lead">クリックまたは下のボタンで再開します。</p>
+      <button id="resume-btn" class="retro-btn">再開する</button>
+    </div>
+  </div>
+
+  <!-- ゲームオーバー画面 -->
+  <div id="gameover-screen" class="overlay-screen hidden">
+    <div class="title-card danger">
+      <h2>捕まった……</h2>
+      <p class="story-lead">
+        赤いコートと赤い帽子の女に追いつかれてしまった。<br />
+        翌朝、誰もいない教室にはポーチだけがぽつんと残されていた――。
+      </p>
+      <button id="retry-btn" class="retro-btn">やり直す</button>
+    </div>
+  </div>
+
+  <!-- 脱出クリア画面 -->
+  <div id="clear-screen" class="overlay-screen hidden">
+    <div class="title-card">
+      <p class="eyebrow">NORMAL END — 逃げ切った夜</p>
+      <h2>生 還</h2>
+      <p id="clear-text" class="story-lead"></p>
+      <button id="play-again-btn" class="retro-btn">もう一度遊ぶ</button>
+    </div>
+  </div>
+
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>
