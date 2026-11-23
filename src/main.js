@@ -307,7 +307,7 @@ function enterLocker(locker) {
     enemy.active &&
     enemy.state === 'chase' &&
     sameFloor &&
-    enemyDist < 9.5 &&
+    enemyDist < 4.5 &&
     enemy.hasLineOfSight(player.pos, schoolMap.colliders)
   );
 
@@ -802,13 +802,13 @@ function updatePlayer(dt) {
   const wantsRun = ((keys['ShiftLeft'] || keys['ShiftRight']) || touchJoy.running) && isMoving && !player.crouching && player.stamina > 2;
 
   if (wantsRun) {
-    player.stamina = Math.max(0, player.stamina - 24 * dt);
+    player.stamina = Math.max(0, player.stamina - 14 * dt);
   } else {
-    player.stamina = Math.min(100, player.stamina + 16 * dt);
+    player.stamina = Math.min(100, player.stamina + 26 * dt);
   }
   staminaFill.style.width = `${player.stamina}%`;
 
-  const speed = player.crouching ? 1.65 : wantsRun ? 5.35 : 3.05;
+  const speed = player.crouching ? 1.85 : wantsRun ? 5.7 : 3.25;
 
   if (isMoving) {
     move.normalize().multiplyScalar(speed * dt);
@@ -870,8 +870,8 @@ function updatePlayer(dt) {
   }
 
   if (!story.enemyTriggered && !story.ghostReleased && player.pos.x > 24 && player.pos.y > 2.5) {
-    activateRedCoatWoman(new THREE.Vector3(34, 4, 7), [
-      { speaker: '美咲', text: '「……っ！ 急に空気が冷たくなった……渡り廊下の奥に、誰かいる？」', duration: 4.2 },
+    activateRedCoatWoman(new THREE.Vector3(34, 0, 7.0), [
+      { speaker: '美咲', text: '「……っ！ 急に空気が冷たくなった……別館の下の方から、誰かの気配がする？」', duration: 4.2 },
       { speaker: '赤いコートの女', text: '「……ワスレモノ……ドコ……」', duration: 3.8, isGhost: true }
     ]);
   }
@@ -1010,7 +1010,7 @@ function tryInteract() {
       story.checkedDesk = true;
       audio.playPickup();
       updateObjectiveText();
-      activateRedCoatWoman(new THREE.Vector3(34, 4, 6), [
+      activateRedCoatWoman(new THREE.Vector3(34, 0, 7.0), [
         { speaker: '美咲', text: '「あれ……机の中にもロッカーにもない！？ どこに置いたっけ……！」', duration: 3.8 },
         { speaker: '美咲', text: '「そうだ、片付けの最後に【別館2Fの音楽室】のピアノの上に置いたんだ！ 東棟2Fの渡り廊下から急ごう！」', duration: 5.5 }
       ]);
@@ -1044,10 +1044,7 @@ function tryInteract() {
     ]);
 
     if (!story.enemyTriggered) {
-      activateRedCoatWoman(new THREE.Vector3(34, 4, 6));
-    } else if (enemy.position.distanceTo(player.pos) > 18) {
-      enemy.position.set(27, 4, 0);
-      enemy.group.position.copy(enemy.position);
+      activateRedCoatWoman(new THREE.Vector3(0, 4, -8));
     }
     return;
   }

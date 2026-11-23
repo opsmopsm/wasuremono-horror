@@ -1,72 +1,102 @@
 import * as THREE from 'three';
 
-// 校舎内の廊下・階段・別館を繋ぐナビゲーションノード（壁抜けせず追いかけてくる！）
+// 校舎内の廊下・階段・別館を壁に一切触れずに繋ぐナビゲーションノード
 function buildNavGraph() {
   const nodes = [
     // --- 1F 本館 ---
-    { id: 0, pos: new THREE.Vector3(12, 0, 11) },    // 1F 東棟南（昇降口付近）
-    { id: 1, pos: new THREE.Vector3(12, 0, 0) },     // 1F 東棟中（職員室前）
-    { id: 2, pos: new THREE.Vector3(12, 0, -8) },    // 1F 北東角
-    { id: 3, pos: new THREE.Vector3(0, 0, -8) },     // 1F 北棟中（保健室前）
-    { id: 4, pos: new THREE.Vector3(-12, 0, -8) },   // 1F 北西角
-    { id: 5, pos: new THREE.Vector3(-12, 0, 4) },    // 1F 西棟中
-    { id: 6, pos: new THREE.Vector3(-12, 0, 12) },   // 1F 西棟南（西昇降口前）
-    // --- 1F->2F 階段中継 ---
-    { id: 7, pos: new THREE.Vector3(19.5, 1.0, -13) },  // 東階段1->2 下
-    { id: 8, pos: new THREE.Vector3(18, 2.0, -16.5) },  // 東階段1->2 踊り場
-    { id: 9, pos: new THREE.Vector3(16, 3.0, -13) },    // 東階段1->2 上
-    { id: 10, pos: new THREE.Vector3(-16, 1.0, -13) },  // 西階段1->2 下
-    { id: 11, pos: new THREE.Vector3(-18, 2.0, -16.5) },// 西階段1->2 踊り場
-    { id: 12, pos: new THREE.Vector3(-20, 3.0, -13) },  // 西階段1->2 上
+    { id: 0, pos: new THREE.Vector3(12, 0, 11) },      // 1F 東棟南（昇降口付近）
+    { id: 1, pos: new THREE.Vector3(12, 0, 0) },       // 1F 東棟中（職員室前）
+    { id: 2, pos: new THREE.Vector3(12, 0, -8) },      // 1F 北東角
+    { id: 3, pos: new THREE.Vector3(0, 0, -8) },       // 1F 北棟中（保健室前）
+    { id: 4, pos: new THREE.Vector3(-12, 0, -8) },     // 1F 北西角
+    { id: 5, pos: new THREE.Vector3(-12, 0, 4) },      // 1F 西棟中
+    { id: 6, pos: new THREE.Vector3(-12, 0, 12) },     // 1F 西棟南（西昇降口前）
+
+    // --- 東階段 1F->2F（廊下端の中継ノード経由で壁に絶対触れない） ---
+    { id: 7, pos: new THREE.Vector3(20.0, 0, -8.2) },  // 1F 東階段右レーン入口前
+    { id: 8, pos: new THREE.Vector3(20.0, 0.2, -10.5) },
+    { id: 9, pos: new THREE.Vector3(20.0, 2.0, -16.4) },
+    { id: 10, pos: new THREE.Vector3(16.0, 2.0, -16.4) },
+    { id: 11, pos: new THREE.Vector3(16.0, 3.8, -10.5) },
+    { id: 12, pos: new THREE.Vector3(16.0, 4.0, -8.2) }, // 2F 東階段左レーン出口
+
+    // --- 西階段 1F->2F ---
+    { id: 13, pos: new THREE.Vector3(-16.0, 0, -8.2) },  // 1F 西階段右レーン入口前
+    { id: 14, pos: new THREE.Vector3(-16.0, 0.2, -10.5) },
+    { id: 15, pos: new THREE.Vector3(-16.0, 2.0, -16.4) },
+    { id: 16, pos: new THREE.Vector3(-20.0, 2.0, -16.4) },
+    { id: 17, pos: new THREE.Vector3(-20.0, 3.8, -10.5) },
+    { id: 18, pos: new THREE.Vector3(-20.0, 4.0, -8.2) }, // 2F 西階段左レーン出口
+
     // --- 2F 本館 ---
-    { id: 13, pos: new THREE.Vector3(12, 4, 11) },   // 2F 東棟南
-    { id: 14, pos: new THREE.Vector3(12, 4, 0) },    // 2F 東棟中（渡り廊下口）
-    { id: 15, pos: new THREE.Vector3(12, 4, -8) },   // 2F 北東角
-    { id: 16, pos: new THREE.Vector3(0, 4, -8) },    // 2F 北棟中（2-A前）
-    { id: 17, pos: new THREE.Vector3(-12, 4, -8) },  // 2F 北西角
-    { id: 18, pos: new THREE.Vector3(-12, 4, 4) },   // 2F 西棟中（図書室前）
-    { id: 19, pos: new THREE.Vector3(-12, 4, 12) },  // 2F 西棟南
+    { id: 19, pos: new THREE.Vector3(12, 4, 11) },     // 2F 東棟南
+    { id: 20, pos: new THREE.Vector3(12, 4, 0) },      // 2F 東棟中（渡り廊下口）
+    { id: 21, pos: new THREE.Vector3(12, 4, -8) },     // 2F 北東角
+    { id: 22, pos: new THREE.Vector3(0, 4, -8) },      // 2F 北棟中（2-A前）
+    { id: 23, pos: new THREE.Vector3(-12, 4, -8) },    // 2F 北西角
+    { id: 24, pos: new THREE.Vector3(-12, 4, 4) },     // 2F 西棟中（図書室前）
+    { id: 25, pos: new THREE.Vector3(-12, 4, 12) },    // 2F 西棟南
+
     // --- 2F 渡り廊下 & 別館2F ---
-    { id: 20, pos: new THREE.Vector3(19, 4, 0) },    // 2F 渡り廊下入口
-    { id: 21, pos: new THREE.Vector3(27, 4, 0) },    // 2F 渡り廊下中央
-    { id: 22, pos: new THREE.Vector3(34, 4, 1.0) },  // 別館2F ホール（音楽室ドア正面）
-    { id: 23, pos: new THREE.Vector3(34, 4, 6.5) },  // 別館2F 廊下南
-    { id: 24, pos: new THREE.Vector3(38.2, 4, 1.0) },// 別館2F 音楽室入口内（ドア直通）
-    { id: 25, pos: new THREE.Vector3(40.2, 4, -4.0) },// 別館2F 音楽室ピアノ手前
-    // --- 別館階段 1F<->2F & 別館1F ---
-    { id: 26, pos: new THREE.Vector3(33.5, 3.0, -5) },  // 別館階段上
-    { id: 27, pos: new THREE.Vector3(35, 2.0, -8.5) },  // 別館階段踊り場
-    { id: 28, pos: new THREE.Vector3(36.5, 1.0, -5) },  // 別館階段下
-    { id: 29, pos: new THREE.Vector3(34, 0, 1.0) },     // 別館1F ホール
-    { id: 30, pos: new THREE.Vector3(34, 0, 7.0) },     // 別館1F 裏口前
-    // --- 2F->3F 階段 & 3F 本館 ---
-    { id: 31, pos: new THREE.Vector3(19.5, 5.0, -13) },
-    { id: 32, pos: new THREE.Vector3(18, 6.0, -16.5) },
-    { id: 33, pos: new THREE.Vector3(16, 7.0, -13) },
-    { id: 34, pos: new THREE.Vector3(12, 8, -8) },   // 3F 北東角
-    { id: 35, pos: new THREE.Vector3(0, 8, -8) },    // 3F 北棟中
-    { id: 36, pos: new THREE.Vector3(-12, 8, -8) },  // 3F 北西角
-    { id: 37, pos: new THREE.Vector3(12, 8, 6) },    // 3F 東棟
-    { id: 38, pos: new THREE.Vector3(-12, 8, 6) }    // 3F 西棟
+    { id: 26, pos: new THREE.Vector3(19, 4, 0) },      // 2F 渡り廊下入口
+    { id: 27, pos: new THREE.Vector3(27, 4, 0) },      // 2F 渡り廊下中央
+    { id: 28, pos: new THREE.Vector3(34, 4, 0) },      // 別館2F 渡り廊下出口
+    { id: 29, pos: new THREE.Vector3(34, 4, 1.0) },    // 別館2F 音楽室ドア正面
+    { id: 30, pos: new THREE.Vector3(34, 4, 6.5) },    // 別館2F 廊下南
+    { id: 31, pos: new THREE.Vector3(38.2, 4, 1.0) },  // 別館2F 音楽室入口内
+    { id: 32, pos: new THREE.Vector3(40.0, 4, -3.5) }, // 別館2F 音楽室ピアノ手前
+
+    // --- 別館階段 2F<->1F（廊下側の中継ノード経由） ---
+    { id: 33, pos: new THREE.Vector3(33.5, 4.0, -1.2) },
+    { id: 34, pos: new THREE.Vector3(33.5, 3.8, -2.5) },
+    { id: 35, pos: new THREE.Vector3(33.5, 2.0, -8.5) },
+    { id: 36, pos: new THREE.Vector3(36.5, 2.0, -8.5) },
+    { id: 37, pos: new THREE.Vector3(36.5, 0.2, -2.5) },
+    { id: 38, pos: new THREE.Vector3(36.5, 0.0, -1.2) },
+    { id: 39, pos: new THREE.Vector3(34.0, 0.0, 1.0) }, // 別館1F 廊下
+    { id: 40, pos: new THREE.Vector3(34.0, 0.0, 7.0) }, // 別館1F 裏口前
+
+    // --- 東階段 2F->3F & 3F 本館 ---
+    { id: 41, pos: new THREE.Vector3(20.0, 4.0, -8.2) },
+    { id: 42, pos: new THREE.Vector3(20.0, 4.2, -10.5) },
+    { id: 43, pos: new THREE.Vector3(20.0, 6.0, -16.4) },
+    { id: 44, pos: new THREE.Vector3(16.0, 6.0, -16.4) },
+    { id: 45, pos: new THREE.Vector3(16.0, 7.8, -10.5) },
+    { id: 46, pos: new THREE.Vector3(16.0, 8.0, -8.2) },
+    { id: 47, pos: new THREE.Vector3(12, 8, -8) },      // 3F 北東角
+    { id: 48, pos: new THREE.Vector3(0, 8, -8) },       // 3F 北棟中
+    { id: 49, pos: new THREE.Vector3(-12, 8, -8) },     // 3F 北西角
+    { id: 50, pos: new THREE.Vector3(12, 8, 6) },       // 3F 東棟
+    { id: 51, pos: new THREE.Vector3(-12, 8, 6) }       // 3F 西棟
   ];
 
   const edges = [
+    // 1F 本館廊下
     [0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 6],
-    [2, 7], [7, 8], [8, 9], [9, 15],
-    [4, 10], [10, 11], [11, 12], [12, 17],
-    [13, 14], [14, 15], [15, 16], [16, 17], [17, 18], [18, 19],
-    [14, 20], [20, 21], [21, 22], [22, 23], [22, 24], [24, 25],
-    [22, 26], [26, 27], [27, 28], [28, 29], [29, 30],
-    [15, 31], [31, 32], [32, 33], [33, 34],
-    [34, 35], [35, 36], [34, 37], [36, 38]
+    // 東階段 1F->2F
+    [2, 7], [7, 8], [8, 9], [9, 10], [10, 11], [11, 12], [12, 21],
+    // 西階段 1F->2F
+    [4, 13], [13, 14], [14, 15], [15, 16], [16, 17], [17, 18], [18, 23],
+    // 2F 本館廊下
+    [19, 20], [20, 21], [21, 22], [22, 23], [23, 24], [24, 25],
+    // 2F 渡り廊下 & 別館2F
+    [20, 26], [26, 27], [27, 28], [28, 29], [29, 30], [29, 31], [31, 32],
+    // 別館階段 2F<->1F
+    [28, 33], [33, 34], [34, 35], [35, 36], [36, 37], [37, 38], [38, 39], [39, 40],
+    // 東階段 2F->3F & 3F
+    [21, 41], [41, 42], [42, 43], [43, 44], [44, 45], [45, 46], [46, 47],
+    [47, 48], [48, 49], [47, 50], [49, 51]
   ];
+
+  // パトロールの目的地に使う「広い廊下・ホール」ノード一覧（階段途中を目的地にしない）
+  const patrolTargets = [0, 1, 2, 3, 4, 5, 6, 19, 20, 21, 22, 23, 24, 25, 27, 29, 30, 39, 40, 47, 48, 49, 50, 51];
 
   const adj = Array.from({ length: nodes.length }, () => []);
   for (const [a, b] of edges) {
     adj[a].push(b);
     adj[b].push(a);
   }
-  return { nodes, adj };
+  return { nodes, adj, patrolTargets };
 }
 
 export class RedCoatWoman {
@@ -75,14 +105,18 @@ export class RedCoatWoman {
     this.nav = buildNavGraph();
     this.active = false;
     this.state = 'idle'; // idle | patrol | chase
-    this.position = new THREE.Vector3(34, 4, 6);
+    this.position = new THREE.Vector3(34, 4, 6.5);
     this.currentPath = [];
     this.pathTimer = 0;
     this.loseSightTimer = 0;
-    this.whisperTimer = 4.0;
+    this.spotDelayTimer = 0;   // 発見してから加速するまでの逃げ出し猶予
+    this.retreatCooldown = 0;  // 振り切ったあと遠くへ離れるクールダウン
+    this.whisperTimer = 5.0;
     this.animTime = 0;
-    this.speedPatrol = 2.35;
-    this.speedChase = 4.25; // プレイヤー走行(5.35)よりやや遅く、歩行(3.05)より速い！
+
+    // ちょうど良く怖くて逃げ切れる速度バランス！
+    this.speedPatrol = 1.75;
+    this.speedChase = 3.45; // プレイヤー歩行(3.25)よりやや速く、ダッシュ(5.7)で余裕で振り切れる
 
     this.group = this.buildModel(textures);
     this.group.position.copy(this.position);
@@ -120,12 +154,10 @@ export class RedCoatWoman {
     const hairMat = new THREE.MeshStandardMaterial({ color: 0x0b090d, roughness: 0.88 });
     const darkMat = new THREE.MeshStandardMaterial({ color: 0x141013, roughness: 0.8 });
 
-    // 上半身・下半身をまとめる胴体ピボット
     this.bodyPivot = new THREE.Group();
     this.bodyPivot.position.y = 0.0;
     root.add(this.bodyPivot);
 
-    // 細長い脚
     this.leftLeg = new THREE.Mesh(new THREE.CylinderGeometry(0.065, 0.055, 0.78, 10), darkMat);
     this.leftLeg.position.set(-0.14, 0.39, 0);
     this.bodyPivot.add(this.leftLeg);
@@ -134,8 +166,7 @@ export class RedCoatWoman {
     this.rightLeg.position.set(0.14, 0.39, 0);
     this.bodyPivot.add(this.rightLeg);
 
-    // 深紅のロングコート（滑らかなドレープスカート＋ウエストベルト）
-    const coatSkirt = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.46, 1.12, 16), coatMat);
+    const coatSkirt = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.44, 1.12, 16), coatMat);
     coatSkirt.position.set(0, 0.86, 0);
     coatSkirt.rotation.z = 0.05;
     this.bodyPivot.add(coatSkirt);
@@ -144,7 +175,6 @@ export class RedCoatWoman {
     belt.position.set(0, 1.24, 0);
     this.bodyPivot.add(belt);
 
-    // 上半身（背骨がわずかに曲がって前傾）
     this.torso = new THREE.Group();
     this.torso.position.set(0, 1.38, 0);
     this.torso.rotation.z = -0.09;
@@ -159,7 +189,6 @@ export class RedCoatWoman {
     collar.position.set(0, 0.42, 0);
     this.torso.add(collar);
 
-    // --- 首＆頭＆赤い帽子（首が真横にグキッと折れ曲がっている！） ---
     this.headGroup = new THREE.Group();
     this.headGroup.position.set(0.03, 0.48, 0.04);
     this.headGroup.rotation.z = 0.68;
@@ -175,7 +204,6 @@ export class RedCoatWoman {
     head.position.set(0, 0.28, 0.02);
     this.headGroup.add(head);
 
-    // 黒く乱れた長い髪（多層で立体的に垂れる）
     const backHair = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.62, 0.13), hairMat);
     backHair.position.set(0, 0.14, -0.11);
     this.headGroup.add(backHair);
@@ -185,14 +213,13 @@ export class RedCoatWoman {
       this.headGroup.add(sideHair);
     });
 
-    // ★ 赤いツバ広帽子（滑らかな円形ブリム＆クラウン＆暗いリボン）
     const hatGroup = new THREE.Group();
     hatGroup.position.set(0, 0.45, 0.01);
     hatGroup.rotation.z = -0.14;
     hatGroup.rotation.x = 0.16;
     this.headGroup.add(hatGroup);
 
-    const hatBrim = new THREE.Mesh(new THREE.CylinderGeometry(0.43, 0.46, 0.04, 20), hatMat);
+    const hatBrim = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.45, 0.04, 20), hatMat);
     hatGroup.add(hatBrim);
     const hatCrown = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.23, 0.23, 18), hatMat);
     hatCrown.position.y = 0.12;
@@ -201,7 +228,6 @@ export class RedCoatWoman {
     hatBand.position.y = 0.04;
     hatGroup.add(hatBand);
 
-    // --- 腕（いびつ：右腕が異常に長く、肘が逆関節ぎみに折れている） ---
     this.rightArm = new THREE.Group();
     this.rightArm.position.set(0.28, 0.34, 0);
     this.torso.add(this.rightArm);
@@ -232,7 +258,6 @@ export class RedCoatWoman {
     lHand.position.set(-0.01, -0.84, 0.24);
     this.leftArm.add(lHand);
 
-    // 懐中電灯が当たると廊下の壁に巨大な影を落とす！
     root.traverse((obj) => {
       if (obj.isMesh) {
         obj.castShadow = true;
@@ -240,7 +265,6 @@ export class RedCoatWoman {
       }
     });
 
-    // 暗闇で赤いコートが妖しく浮かび上がる赤オーラ光
     const aura = new THREE.PointLight(0xb80c1c, 0.85, 7.2, 1.7);
     aura.position.set(0, 1.5, 0.28);
     root.add(aura);
@@ -251,6 +275,8 @@ export class RedCoatWoman {
   activate(spawnPos) {
     this.active = true;
     this.state = 'patrol';
+    this.retreatCooldown = 0;
+    this.spotDelayTimer = 0;
     if (spawnPos) {
       this.position.copy(spawnPos);
       this.group.position.copy(spawnPos);
@@ -266,16 +292,19 @@ export class RedCoatWoman {
     this.group.visible = false;
   }
 
-  findNearestNode(pos) {
+  findNearestNode(pos, colliders = null) {
     let best = 0;
-    let bestDist = Infinity;
+    let bestScore = Infinity;
     for (let i = 0; i < this.nav.nodes.length; i++) {
       const n = this.nav.nodes[i].pos;
-      // 階層違いにはペナルティ
-      const dy = Math.abs(n.y - pos.y) * 2.5;
-      const d = Math.hypot(n.x - pos.x, n.z - pos.z) + dy;
-      if (d < bestDist) {
-        bestDist = d;
+      const dy = Math.abs(n.y - pos.y);
+      let score = Math.hypot(n.x - pos.x, n.z - pos.z) + dy * 4.0;
+      // 壁の向こう側のノードを誤って選ばないよう視線が遮られていたら大きなペナルティ！
+      if (colliders && dy < 1.5 && !this.segmentClear(pos, n, colliders)) {
+        score += 25.0;
+      }
+      if (score < bestScore) {
+        bestScore = score;
         best = i;
       }
     }
@@ -309,24 +338,25 @@ export class RedCoatWoman {
     return path;
   }
 
-  // 簡易ラインオブサイト（同じ階で壁に遮られていないか）
-  hasLineOfSight(playerPos, colliders) {
-    if (Math.abs(playerPos.y - this.position.y) > 1.8) return false;
-    const dx = playerPos.x - this.position.x;
-    const dz = playerPos.z - this.position.z;
+  // 2点間が壁で遮られていないか厳密チェック（高さ0.9mと1.5mの2ライン）
+  segmentClear(a, b, colliders) {
+    const dx = b.x - a.x;
+    const dz = b.z - a.z;
     const dist = Math.hypot(dx, dz);
-    if (dist < 0.8) return true;
+    if (dist < 0.4) return true;
 
-    const steps = Math.ceil(dist / 0.65);
-    const checkY = this.position.y + 1.3;
+    const steps = Math.ceil(dist / 0.4);
+    const baseY = Math.min(a.y, b.y);
     for (let i = 1; i < steps; i++) {
       const t = i / steps;
-      const px = this.position.x + dx * t;
-      const pz = this.position.z + dz * t;
+      const px = a.x + dx * t;
+      const pz = a.z + dz * t;
       for (const c of colliders) {
         if (c.active === false) continue;
-        if (checkY < c.minY || checkY > c.maxY) continue;
-        if (px >= c.minX && px <= c.maxX && pz >= c.minZ && pz <= c.maxZ) {
+        // 胸の高さ(1.3m)で壁に当たるかチェック
+        const cy = baseY + 1.3;
+        if (cy < c.minY || cy > c.maxY) continue;
+        if (px >= c.minX - 0.12 && px <= c.maxX + 0.12 && pz >= c.minZ - 0.12 && pz <= c.maxZ + 0.12) {
           return false;
         }
       }
@@ -334,10 +364,16 @@ export class RedCoatWoman {
     return true;
   }
 
+  hasLineOfSight(playerPos, colliders) {
+    if (Math.abs(playerPos.y - this.position.y) > 1.6) return false;
+    return this.segmentClear(this.position, playerPos, colliders);
+  }
+
+  // 広めの半径(0.46m)で壁コライダーと常時衝突判定（コートや腕が壁を突き抜けない！）
   collidesAt(x, y, z, colliders) {
-    const r = 0.34;
-    const minY = y + 0.25;
-    const maxY = y + 1.75;
+    const r = 0.46;
+    const minY = y + 0.3;
+    const maxY = y + 1.8;
     for (const c of colliders) {
       if (c.active === false) continue;
       if (maxY <= c.minY || minY >= c.maxY) continue;
@@ -348,14 +384,14 @@ export class RedCoatWoman {
     return false;
   }
 
-  // 進行方向の近くにある閉まった引き戸を自動で開ける（壁貫通せずドアを開けて入ってくる！）
-  openNearbyDoors(doors, callbacks) {
+  // 目の前の閉まったドアだけを開ける（壁越しのドアは開けない）
+  openNearbyDoors(doors, colliders, callbacks) {
     if (!doors) return;
     for (const d of doors) {
       if (d.isOpen || d.locked) continue;
-      if (Math.abs(d.center.y - (this.position.y + 1.2)) > 1.5) continue;
+      if (Math.abs(d.center.y - (this.position.y + 1.2)) > 1.4) continue;
       const dist = Math.hypot(d.center.x - this.position.x, d.center.z - this.position.z);
-      if (dist < 1.35) {
+      if (dist < 1.1) {
         d.isOpen = true;
         d.collider.active = false;
         if (callbacks && callbacks.onOpenDoor) callbacks.onOpenDoor();
@@ -363,22 +399,36 @@ export class RedCoatWoman {
     }
   }
 
+  // プレイヤーから十分に離れた巡回ノードを選ぶ（張り付きを完全防止！）
+  pickPatrolTarget(playerPos, preferFar = false) {
+    const pool = this.nav.patrolTargets;
+    const farNodes = pool.filter((idx) => {
+      const p = this.nav.nodes[idx].pos;
+      return p.distanceTo(playerPos) >= 14.0;
+    });
+    const candidates = (preferFar && farNodes.length > 0)
+      ? farNodes
+      : (Math.random() < 0.72 && farNodes.length > 0 ? farNodes : pool);
+    return candidates[Math.floor(Math.random() * candidates.length)];
+  }
+
   update(dt, playerPos, playerState, colliders, callbacks, doors = []) {
     if (!this.active) return 999;
 
     const dist3D = this.position.distanceTo(playerPos);
-    const sameFloor = Math.abs(this.position.y - playerPos.y) < 1.8;
+    const sameFloor = Math.abs(this.position.y - playerPos.y) < 1.6;
+    if (this.retreatCooldown > 0) this.retreatCooldown -= dt;
+    if (this.spotDelayTimer > 0) this.spotDelayTimer -= dt;
 
     // 1. ロッカーに隠れている場合の専用AI
     if (playerState.hiding && playerState.hidingLocker) {
       const locker = playerState.hidingLocker;
 
       if (playerState.seenHiding) {
-        // 目の前で見られながらロッカーに隠れた！→ 壁を避けつつロッカー正面まで走ってきてこじ開ける！
         this.state = 'chase';
         const target = locker.exitPos;
         const dToLocker = Math.hypot(target.x - this.position.x, target.z - this.position.z);
-        if (dToLocker < 1.15 && sameFloor) {
+        if (dToLocker < 1.05 && sameFloor && this.segmentClear(this.position, target, colliders)) {
           if (callbacks.onLockerBreach) callbacks.onLockerBreach();
           return dToLocker;
         }
@@ -387,21 +437,22 @@ export class RedCoatWoman {
         return dist3D;
       }
 
-      // 見られずに隠れている → 追跡解除してパトロール（ロッカーの前を通り過ぎていく！）
+      // 見られずに隠れた → 追跡を解除して、遠くの廊下へ去っていく！
       if (this.state === 'chase') {
         this.state = 'patrol';
-        this.currentPath = [];
-        this.pathTimer = 0;
+        this.retreatCooldown = 14.0;
+        const startN = this.findNearestNode(this.position, colliders);
+        const farN = this.pickPatrolTarget(playerPos, true);
+        this.currentPath = this.computePath(startN, farN);
+        this.pathTimer = 10.0;
       }
 
-      // 近くを通り過ぎるときの不気味な囁きセリフ
       this.whisperTimer -= dt;
       if (sameFloor && dist3D < 6.5 && this.whisperTimer <= 0) {
-        this.whisperTimer = 5.5 + Math.random() * 4;
+        this.whisperTimer = 6.5 + Math.random() * 4;
         const hideLines = [
           '「……ドコ……カクレテルノ……？」',
-          '「……カチ……カチ……ドコニイルノ……」',
-          '「……ナカニ、イルノ……？」'
+          '「……カチ……カチ……イナイノカナ……」'
         ];
         if (callbacks.onWhisper) {
           callbacks.onWhisper(hideLines[Math.floor(Math.random() * hideLines.length)]);
@@ -413,39 +464,44 @@ export class RedCoatWoman {
       return dist3D;
     }
 
-    // 2. 通常時（廊下・部屋にいるとき）の索敵＆追跡
-    let detectRange = playerState.flashlightOn ? 16.5 : 7.5;
-    if (playerState.crouching) detectRange *= 0.62;
-    if (playerState.running) detectRange += 4.0;
+    // 2. 通常時の索敵＆追跡（理不尽のない視界距離とクールダウン）
+    let detectRange = playerState.flashlightOn ? 11.5 : 5.0;
+    if (playerState.crouching) detectRange *= 0.55;
+    if (playerState.running) detectRange += 2.5;
 
     const canSee = sameFloor && dist3D < detectRange && this.hasLineOfSight(playerPos, colliders);
 
     if (canSee) {
       if (this.state !== 'chase') {
         this.state = 'chase';
+        this.spotDelayTimer = 0.45; // 発見から逃げ出すための0.45秒の猶予
         if (callbacks.onSpot) callbacks.onSpot();
       }
-      this.loseSightTimer = 5.5;
+      this.loseSightTimer = 3.2; // 角を曲がって少し走ればちゃんと撒ける！
     } else if (this.state === 'chase') {
       this.loseSightTimer -= dt;
       if (this.loseSightTimer <= 0) {
         this.state = 'patrol';
-        this.currentPath = [];
+        this.retreatCooldown = 12.0; // 撒いたあとはしばらく遠くへ離れる
+        const startN = this.findNearestNode(this.position, colliders);
+        const farN = this.pickPatrolTarget(playerPos, true);
+        this.currentPath = this.computePath(startN, farN);
+        this.pathTimer = 9.0;
       }
     }
 
-    // 捕獲判定！（壁越しに捕まらないよう視線チェック込み）
-    if (dist3D < 1.15 && sameFloor && this.hasLineOfSight(playerPos, colliders)) {
+    // 捕獲判定（壁越し捕獲なし＆距離0.92mで理不尽なし）
+    if (dist3D < 0.92 && sameFloor && this.hasLineOfSight(playerPos, colliders)) {
       if (callbacks.onCatch) callbacks.onCatch();
       return dist3D;
     }
 
     // 近いときのホラー囁きセリフ
     this.whisperTimer -= dt;
-    if (sameFloor && dist3D < 11.0 && this.whisperTimer <= 0) {
-      this.whisperTimer = 6.5 + Math.random() * 5;
+    if (sameFloor && dist3D < 9.5 && this.whisperTimer <= 0) {
+      this.whisperTimer = 8.0 + Math.random() * 5;
       const lines = this.state === 'chase'
-        ? ['「……ミツケタ……！」', '「……ニゲナイデ……ワスレモノ……」', '「……アケテ……イッショニ、イヨウ……」']
+        ? ['「……ミツケタ……！」', '「……ニゲナイデ……ワスレモノ……」']
         : ['「……ワスレモノ……ドコ……」', '「……アケテ……クラクテ、セマイヨ……」'];
       if (callbacks.onWhisper) {
         callbacks.onWhisper(lines[Math.floor(Math.random() * lines.length)]);
@@ -457,39 +513,40 @@ export class RedCoatWoman {
     let moveTarget = null;
 
     if (this.state === 'chase') {
-      if (canSee && dist3D < 12) {
+      // 発見直後の0.45秒はゆっくり踏み出して逃げ出す隙を作る
+      const curChaseSpeed = this.spotDelayTimer > 0 ? this.speedPatrol * 0.7 : this.speedChase;
+
+      // 間に壁がなく真っ直ぐ見えているときだけ直接追う。少しでも遮られたら必ずナビ経路！
+      if (canSee && dist3D < 9.5 && this.segmentClear(this.position, playerPos, colliders)) {
         moveTarget = playerPos.clone();
         this.currentPath = [];
       } else if (this.pathTimer <= 0 || this.currentPath.length === 0) {
-        const startN = this.findNearestNode(this.position);
-        const endN = this.findNearestNode(playerPos);
+        const startN = this.findNearestNode(this.position, colliders);
+        const endN = this.findNearestNode(playerPos, colliders);
         this.currentPath = this.computePath(startN, endN);
-        this.pathTimer = 0.9;
+        this.pathTimer = 1.0;
+      }
+
+      if (!moveTarget && this.currentPath.length > 0) {
+        moveTarget = this.currentPath[0];
+        const flatDist = Math.hypot(moveTarget.x - this.position.x, moveTarget.z - this.position.z);
+        if (flatDist < 0.45 && Math.abs(moveTarget.y - this.position.y) < 0.7) {
+          this.currentPath.shift();
+          moveTarget = this.currentPath[0] || null;
+        }
+      }
+
+      if (moveTarget) {
+        const moved = this.moveToward(moveTarget, curChaseSpeed, dt, colliders, doors, callbacks);
+        if (!moved) {
+          const startN = this.findNearestNode(this.position, colliders);
+          const endN = this.findNearestNode(playerPos, colliders);
+          this.currentPath = this.computePath(startN, endN);
+          this.pathTimer = 1.0;
+        }
       }
     } else {
       this.updatePatrolMovement(dt, playerPos, false, colliders, doors, callbacks);
-      this.animateBody(dt);
-      return dist3D;
-    }
-
-    if (!moveTarget && this.currentPath.length > 0) {
-      moveTarget = this.currentPath[0];
-      const flatDist = Math.hypot(moveTarget.x - this.position.x, moveTarget.z - this.position.z);
-      if (flatDist < 0.55 && Math.abs(moveTarget.y - this.position.y) < 0.7) {
-        this.currentPath.shift();
-        moveTarget = this.currentPath[0] || null;
-      }
-    }
-
-    if (moveTarget) {
-      const moved = this.moveToward(moveTarget, this.speedChase, dt, colliders, doors, callbacks);
-      // 直進が壁に阻まれたら廊下ナビ経路へフォールバック
-      if (!moved && this.currentPath.length === 0) {
-        const startN = this.findNearestNode(this.position);
-        const endN = this.findNearestNode(playerPos);
-        this.currentPath = this.computePath(startN, endN);
-        this.pathTimer = 0.9;
-      }
     }
 
     this.animateBody(dt);
@@ -499,28 +556,20 @@ export class RedCoatWoman {
   updatePatrolMovement(dt, playerPos, playerIsHiding, colliders, doors, callbacks) {
     this.pathTimer -= dt;
     if (this.currentPath.length === 0 || this.pathTimer <= 0) {
-      const startN = this.findNearestNode(this.position);
-      let targetN;
-      if (!playerIsHiding && Math.random() < 0.6) {
-        const pNode = this.findNearestNode(playerPos);
-        const candidates = [pNode, ...this.nav.adj[pNode]];
-        targetN = candidates[Math.floor(Math.random() * candidates.length)];
-      } else {
-        targetN = Math.floor(Math.random() * this.nav.nodes.length);
-      }
+      const startN = this.findNearestNode(this.position, colliders);
+      const preferFar = playerIsHiding || this.retreatCooldown > 0;
+      const targetN = this.pickPatrolTarget(playerPos, preferFar);
       this.currentPath = this.computePath(startN, targetN);
-      this.pathTimer = 5.0;
+      this.pathTimer = 9.0;
     }
 
     if (this.currentPath.length > 0) {
       const wp = this.currentPath[0];
       const flatDist = Math.hypot(wp.x - this.position.x, wp.z - this.position.z);
-      if (flatDist < 0.55 && Math.abs(wp.y - this.position.y) < 0.7) {
+      if (flatDist < 0.45 && Math.abs(wp.y - this.position.y) < 0.7) {
         this.currentPath.shift();
       } else {
-        const nearDist = this.position.distanceTo(playerPos);
-        const spd = playerIsHiding && nearDist < 5.0 ? this.speedPatrol * 0.65 : this.speedPatrol;
-        const moved = this.moveToward(wp, spd, dt, colliders, doors, callbacks);
+        const moved = this.moveToward(wp, this.speedPatrol, dt, colliders, doors, callbacks);
         if (!moved) {
           this.currentPath = [];
           this.pathTimer = 0;
@@ -530,7 +579,7 @@ export class RedCoatWoman {
   }
 
   moveToward(target, speed, dt, colliders, doors, callbacks) {
-    this.openNearbyDoors(doors, callbacks);
+    this.openNearbyDoors(doors, colliders, callbacks);
 
     const dir = target.clone().sub(this.position);
     const len = dir.length();
@@ -545,25 +594,25 @@ export class RedCoatWoman {
     const prevX = this.position.x;
     const prevZ = this.position.z;
 
-    // Y方向（階段昇降）はスムーズに追従
-    this.position.y += dy;
+    // 階段移動中も含めて常に壁コライダーを厳密チェック（絶対に壁をすり抜けない！）
+    const subSteps = Math.max(1, Math.ceil(Math.hypot(dx, dz) / 0.07));
+    const sx = dx / subSteps;
+    const sy = dy / subSteps;
+    const sz = dz / subSteps;
 
-    // X / Z 方向は壁コライダーと衝突チェックしながら移動（絶対に壁を貫通しない！）
-    const onStairs = Math.abs(dy) > 0.002;
-    if (onStairs || !colliders) {
-      this.position.x += dx;
-      this.position.z += dz;
-    } else {
-      const subSteps = Math.max(1, Math.ceil(Math.hypot(dx, dz) / 0.08));
-      const sx = dx / subSteps;
-      const sz = dz / subSteps;
-      for (let i = 0; i < subSteps; i++) {
-        if (!this.collidesAt(this.position.x + sx, this.position.y, this.position.z, colliders)) {
-          this.position.x += sx;
-        }
-        if (!this.collidesAt(this.position.x, this.position.y, this.position.z + sz, colliders)) {
-          this.position.z += sz;
-        }
+    for (let i = 0; i < subSteps; i++) {
+      const ny = this.position.y + sy;
+      let movedAny = false;
+      if (!colliders || !this.collidesAt(this.position.x + sx, ny, this.position.z, colliders)) {
+        this.position.x += sx;
+        movedAny = true;
+      }
+      if (!colliders || !this.collidesAt(this.position.x, ny, this.position.z + sz, colliders)) {
+        this.position.z += sz;
+        movedAny = true;
+      }
+      if (movedAny || Math.abs(sy) > 0.0001) {
+        this.position.y = ny;
       }
     }
 
@@ -575,24 +624,24 @@ export class RedCoatWoman {
 
     this.group.position.copy(this.position);
     const actuallyMoved = Math.hypot(this.position.x - prevX, this.position.z - prevZ) + Math.abs(dy);
-    return actuallyMoved > step * 0.15;
+    return actuallyMoved > step * 0.2;
   }
 
   animateBody(dt) {
-    const animSpeed = this.state === 'chase' ? 11.5 : 5.5;
+    const animSpeed = this.state === 'chase' ? 9.5 : 4.8;
     this.animTime += dt * animSpeed;
     const stride = Math.sin(this.animTime);
 
-    this.leftLeg.rotation.x = stride * 0.5;
-    this.rightLeg.rotation.x = -stride * 0.5;
-    this.rightArm.rotation.x = -stride * 0.45 - (this.state === 'chase' ? 0.55 : 0.1);
-    this.leftArm.rotation.x = stride * 0.35 - (this.state === 'chase' ? 0.35 : 0.05);
+    this.leftLeg.rotation.x = stride * 0.45;
+    this.rightLeg.rotation.x = -stride * 0.45;
+    this.rightArm.rotation.x = -stride * 0.4 - (this.state === 'chase' ? 0.5 : 0.1);
+    this.leftArm.rotation.x = stride * 0.32 - (this.state === 'chase' ? 0.32 : 0.05);
 
-    this.bodyPivot.position.y = Math.abs(Math.sin(this.animTime)) * 0.09;
-    this.torso.rotation.z = -0.1 + Math.sin(this.animTime * 0.7) * 0.08;
+    this.bodyPivot.position.y = Math.abs(Math.sin(this.animTime)) * 0.08;
+    this.torso.rotation.z = -0.1 + Math.sin(this.animTime * 0.7) * 0.07;
 
-    const twitch = Math.sin(this.animTime * 3.7) > 0.85 ? (Math.random() - 0.5) * 0.35 : 0;
-    this.headGroup.rotation.z = 0.68 + Math.sin(this.animTime * 1.2) * 0.12 + twitch;
-    this.headGroup.rotation.y = Math.sin(this.animTime * 0.9) * 0.18 + twitch;
+    const twitch = Math.sin(this.animTime * 3.7) > 0.85 ? (Math.random() - 0.5) * 0.32 : 0;
+    this.headGroup.rotation.z = 0.68 + Math.sin(this.animTime * 1.2) * 0.1 + twitch;
+    this.headGroup.rotation.y = Math.sin(this.animTime * 0.9) * 0.16 + twitch;
   }
 }
