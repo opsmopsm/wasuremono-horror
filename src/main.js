@@ -139,7 +139,7 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x050811);
 scene.fog = new THREE.FogExp2(0x050811, 0.068);
 
-const camera = new THREE.PerspectiveCamera(68, window.innerWidth / Math.max(1, window.innerHeight), 0.1, 85);
+const camera = new THREE.PerspectiveCamera(68, window.innerWidth / Math.max(1, window.innerHeight), 0.05, 85);
 window.addEventListener('resize', updateResolution);
 updateResolution();
 
@@ -182,7 +182,7 @@ const player = {
   pos: new THREE.Vector3(12, 0, 13.5),
   yaw: 0,
   pitch: 0,
-  radius: 0.36,
+  radius: 0.42,
   stamina: 100,
   flashlightOn: true,
   savedFlashlightOn: true,
@@ -516,7 +516,7 @@ playAgainBtn.addEventListener('click', () => {
 });
 
 // =========================================================================
-// 衝突判定＆移動
+// 衝突判定＆押し戻し解決（サブステップ移動で絶対に壁を貫通しない！）
 // =========================================================================
 function collidesAt(x, y, z) {
   const r = player.radius;
@@ -531,6 +531,34 @@ function collidesAt(x, y, z) {
     }
   }
   return false;
+}
+
+// 万一ドア開閉や角でめり込んだ場合、最短軸で必ず壁の外側へ押し戻す
+function pushOutOfWalls() {
+  const r = player.radius;
+  const pMinY = player.pos.y + 0.15;
+  const pMaxY = player.pos.y + (player.crouching ? 1.05 : 1.65);
+
+  for (let iter = 0; iter < 3; iter++) {
+    let pushed = false;
+    for (const c of schoolMap.colliders) {
+      if (c.active === false) continue;
+      if (pMaxY <= c.minY || pMinY >= c.maxY) continue;
+      const overlapL = (player.pos.x + r) - c.minX;
+      const overlapR = c.maxX - (player.pos.x - r);
+      const overlapT = (player.pos.z + r) - c.minZ;
+      const overlapB = c.maxZ - (player.pos.z - r);
+      if (overlapL > 0 && overlapR > 0 && overlapT > 0 && overlapB > 0) {
+        const minOverlap = Math.min(overlapL, overlapR, overlapT, overlapB);
+        if (minOverlap === overlapL) player.pos.x -= overlapL + 0.002;
+        else if (minOverlap === overlapR) player.pos.x += overlapR + 0.002;
+        else if (minOverlap === overlapT) player.pos.z -= overlapT + 0.002;
+        else player.pos.z += overlapB + 0.002;
+        pushed = true;
+      }
+    }
+    if (!pushed) break;
+  }
 }
 
 function updatePlayer(dt) {
@@ -581,15 +609,21 @@ function updatePlayer(dt) {
 
   if (isMoving) {
     move.normalize().multiplyScalar(speed * dt);
-    const nx = player.pos.x + move.x;
-    const nz = player.pos.z + move.z;
+    // サブステップ分割（最大0.07m刻み）で高速ダッシュ時でも壁すり抜けを完全防止
+    const dist = Math.hypot(move.x, move.z);
+    const steps = Math.max(1, Math.ceil(dist / 0.07));
+    const sx = move.x / steps;
+    const sz = move.z / steps;
 
-    if (!collidesAt(nx, player.pos.y, player.pos.z)) {
-      player.pos.x = nx;
+    for (let i = 0; i < steps; i++) {
+      if (!collidesAt(player.pos.x + sx, player.pos.y, player.pos.z)) {
+        player.pos.x += sx;
+      }
+      if (!collidesAt(player.pos.x, player.pos.y, player.pos.z + sz)) {
+        player.pos.z += sz;
+      }
     }
-    if (!collidesAt(player.pos.x, player.pos.y, nz)) {
-      player.pos.z = nz;
-    }
+    pushOutOfWalls();
 
     const targetY = schoolMap.getFloorHeight(player.pos.x, player.pos.z, player.pos.y);
     player.pos.y += (targetY - player.pos.y) * Math.min(1, dt * 16);
@@ -602,6 +636,7 @@ function updatePlayer(dt) {
       player.stepTimer = wantsRun ? 0.31 : player.crouching ? 0.65 : 0.48;
     }
   } else {
+    pushOutOfWalls();
     player.bobTime = 0;
   }
 
@@ -617,9 +652,10 @@ function updatePlayer(dt) {
   if (player.flashlightOn) {
     const dir = new THREE.Vector3(0, 0, -1).applyEuler(camera.rotation);
     const rightVec = new THREE.Vector3(1, 0, 0).applyEuler(camera.rotation);
+    // 壁際でも懐中電灯が壁の裏に突き抜けないようオフセットを小さく抑える
     flashlight.position.copy(camera.position)
-      .addScaledVector(rightVec, 0.16)
-      .add(new THREE.Vector3(0, -0.14 + bobOffset * 0.5, 0));
+      .addScaledVector(rightVec, 0.07)
+      .add(new THREE.Vector3(0, -0.10 + bobOffset * 0.4, 0));
     flashlightTarget.position.copy(camera.position).addScaledVector(dir, 8);
   }
   playerGlow.position.copy(camera.position);
@@ -1214,10 +1250,13 @@ function animate(now) {
         audio.playLockerToggle(false);
         triggerJumpscare('「……ソコニ、イルノ、ミテタヨ……！」', 'breach');
       },
+      onOpenDoor: () => {
+        audio.playDoorSlide();
+      },
       onCatch: () => {
         triggerJumpscare('「……ツカマエタ……！」', 'catch');
       }
-    });
+    }, schoolMap.doors);
 
     if (player.hiding && enemy.active && enemyDist < 11) {
       const intensity = Math.max(0.25, Math.min(1, 1 - enemyDist / 11));

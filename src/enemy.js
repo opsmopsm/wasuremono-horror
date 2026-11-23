@@ -29,16 +29,16 @@ function buildNavGraph() {
     // --- 2F 渡り廊下 & 別館2F ---
     { id: 20, pos: new THREE.Vector3(19, 4, 0) },    // 2F 渡り廊下入口
     { id: 21, pos: new THREE.Vector3(27, 4, 0) },    // 2F 渡り廊下中央
-    { id: 22, pos: new THREE.Vector3(34, 4, 0) },    // 別館2F ホール
-    { id: 23, pos: new THREE.Vector3(34, 4, 6) },    // 別館2F 廊下南
-    { id: 24, pos: new THREE.Vector3(40, 4, 0) },    // 別館2F 音楽室入口内
-    { id: 25, pos: new THREE.Vector3(41, 4, -6) },   // 別館2F 音楽室ピアノ付近
+    { id: 22, pos: new THREE.Vector3(34, 4, 1.0) },  // 別館2F ホール（音楽室ドア正面）
+    { id: 23, pos: new THREE.Vector3(34, 4, 6.5) },  // 別館2F 廊下南
+    { id: 24, pos: new THREE.Vector3(38.2, 4, 1.0) },// 別館2F 音楽室入口内（ドア直通）
+    { id: 25, pos: new THREE.Vector3(40.2, 4, -4.0) },// 別館2F 音楽室ピアノ手前
     // --- 別館階段 1F<->2F & 別館1F ---
     { id: 26, pos: new THREE.Vector3(33.5, 3.0, -5) },  // 別館階段上
     { id: 27, pos: new THREE.Vector3(35, 2.0, -8.5) },  // 別館階段踊り場
     { id: 28, pos: new THREE.Vector3(36.5, 1.0, -5) },  // 別館階段下
-    { id: 29, pos: new THREE.Vector3(34, 0, 0) },       // 別館1F ホール
-    { id: 30, pos: new THREE.Vector3(34, 0, 7) },       // 別館1F 裏口前
+    { id: 29, pos: new THREE.Vector3(34, 0, 1.0) },     // 別館1F ホール
+    { id: 30, pos: new THREE.Vector3(34, 0, 7.0) },     // 別館1F 裏口前
     // --- 2F->3F 階段 & 3F 本館 ---
     { id: 31, pos: new THREE.Vector3(19.5, 5.0, -13) },
     { id: 32, pos: new THREE.Vector3(18, 6.0, -16.5) },
@@ -334,7 +334,36 @@ export class RedCoatWoman {
     return true;
   }
 
-  update(dt, playerPos, playerState, colliders, callbacks) {
+  collidesAt(x, y, z, colliders) {
+    const r = 0.34;
+    const minY = y + 0.25;
+    const maxY = y + 1.75;
+    for (const c of colliders) {
+      if (c.active === false) continue;
+      if (maxY <= c.minY || minY >= c.maxY) continue;
+      if (x + r > c.minX && x - r < c.maxX && z + r > c.minZ && z - r < c.maxZ) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  // 進行方向の近くにある閉まった引き戸を自動で開ける（壁貫通せずドアを開けて入ってくる！）
+  openNearbyDoors(doors, callbacks) {
+    if (!doors) return;
+    for (const d of doors) {
+      if (d.isOpen || d.locked) continue;
+      if (Math.abs(d.center.y - (this.position.y + 1.2)) > 1.5) continue;
+      const dist = Math.hypot(d.center.x - this.position.x, d.center.z - this.position.z);
+      if (dist < 1.35) {
+        d.isOpen = true;
+        d.collider.active = false;
+        if (callbacks && callbacks.onOpenDoor) callbacks.onOpenDoor();
+      }
+    }
+  }
+
+  update(dt, playerPos, playerState, colliders, callbacks, doors = []) {
     if (!this.active) return 999;
 
     const dist3D = this.position.distanceTo(playerPos);
@@ -345,7 +374,7 @@ export class RedCoatWoman {
       const locker = playerState.hidingLocker;
 
       if (playerState.seenHiding) {
-        // 目の前で見られながらロッカーに隠れた！→ ロッカー正面まで走ってきてこじ開ける！
+        // 目の前で見られながらロッカーに隠れた！→ 壁を避けつつロッカー正面まで走ってきてこじ開ける！
         this.state = 'chase';
         const target = locker.exitPos;
         const dToLocker = Math.hypot(target.x - this.position.x, target.z - this.position.z);
@@ -353,14 +382,7 @@ export class RedCoatWoman {
           if (callbacks.onLockerBreach) callbacks.onLockerBreach();
           return dToLocker;
         }
-        const dir = target.clone().sub(this.position);
-        dir.y = 0;
-        if (dir.length() > 0.01) {
-          dir.normalize();
-          this.position.addScaledVector(dir, Math.min(dToLocker, this.speedChase * dt));
-          this.group.rotation.y = Math.atan2(dir.x, dir.z);
-        }
-        this.group.position.copy(this.position);
+        this.moveToward(target, this.speedChase, dt, colliders, doors, callbacks);
         this.animateBody(dt);
         return dist3D;
       }
@@ -386,7 +408,7 @@ export class RedCoatWoman {
         }
       }
 
-      this.updatePatrolMovement(dt, playerPos, true);
+      this.updatePatrolMovement(dt, playerPos, true, colliders, doors, callbacks);
       this.animateBody(dt);
       return dist3D;
     }
@@ -412,8 +434,8 @@ export class RedCoatWoman {
       }
     }
 
-    // 捕獲判定！
-    if (dist3D < 1.15 && sameFloor) {
+    // 捕獲判定！（壁越しに捕まらないよう視線チェック込み）
+    if (dist3D < 1.15 && sameFloor && this.hasLineOfSight(playerPos, colliders)) {
       if (callbacks.onCatch) callbacks.onCatch();
       return dist3D;
     }
@@ -445,7 +467,7 @@ export class RedCoatWoman {
         this.pathTimer = 0.9;
       }
     } else {
-      this.updatePatrolMovement(dt, playerPos, false);
+      this.updatePatrolMovement(dt, playerPos, false, colliders, doors, callbacks);
       this.animateBody(dt);
       return dist3D;
     }
@@ -460,19 +482,25 @@ export class RedCoatWoman {
     }
 
     if (moveTarget) {
-      this.moveToward(moveTarget, this.speedChase, dt);
+      const moved = this.moveToward(moveTarget, this.speedChase, dt, colliders, doors, callbacks);
+      // 直進が壁に阻まれたら廊下ナビ経路へフォールバック
+      if (!moved && this.currentPath.length === 0) {
+        const startN = this.findNearestNode(this.position);
+        const endN = this.findNearestNode(playerPos);
+        this.currentPath = this.computePath(startN, endN);
+        this.pathTimer = 0.9;
+      }
     }
 
     this.animateBody(dt);
     return dist3D;
   }
 
-  updatePatrolMovement(dt, playerPos, playerIsHiding) {
+  updatePatrolMovement(dt, playerPos, playerIsHiding, colliders, doors, callbacks) {
     this.pathTimer -= dt;
     if (this.currentPath.length === 0 || this.pathTimer <= 0) {
       const startN = this.findNearestNode(this.position);
       let targetN;
-      // 隠れているときはあえて別ノードへ通り抜ける経路を選び、目の前を通過する緊張感を作る
       if (!playerIsHiding && Math.random() < 0.6) {
         const pNode = this.findNearestNode(playerPos);
         const candidates = [pNode, ...this.nav.adj[pNode]];
@@ -490,29 +518,64 @@ export class RedCoatWoman {
       if (flatDist < 0.55 && Math.abs(wp.y - this.position.y) < 0.7) {
         this.currentPath.shift();
       } else {
-        // 隠れているロッカーのすぐ近くを通るときは不気味に少しゆっくり歩く
         const nearDist = this.position.distanceTo(playerPos);
         const spd = playerIsHiding && nearDist < 5.0 ? this.speedPatrol * 0.65 : this.speedPatrol;
-        this.moveToward(wp, spd, dt);
+        const moved = this.moveToward(wp, spd, dt, colliders, doors, callbacks);
+        if (!moved) {
+          this.currentPath = [];
+          this.pathTimer = 0;
+        }
       }
     }
   }
 
-  moveToward(target, speed, dt) {
+  moveToward(target, speed, dt, colliders, doors, callbacks) {
+    this.openNearbyDoors(doors, callbacks);
+
     const dir = target.clone().sub(this.position);
     const len = dir.length();
-    if (len > 0.01) {
-      dir.normalize();
-      const step = Math.min(len, speed * dt);
-      this.position.addScaledVector(dir, step);
+    if (len <= 0.01) return true;
 
-      const targetAngle = Math.atan2(dir.x, dir.z);
-      let diff = targetAngle - this.group.rotation.y;
-      while (diff > Math.PI) diff -= Math.PI * 2;
-      while (diff < -Math.PI) diff += Math.PI * 2;
-      this.group.rotation.y += diff * Math.min(1, dt * 8);
+    dir.normalize();
+    const step = Math.min(len, speed * dt);
+    const dx = dir.x * step;
+    const dy = dir.y * step;
+    const dz = dir.z * step;
+
+    const prevX = this.position.x;
+    const prevZ = this.position.z;
+
+    // Y方向（階段昇降）はスムーズに追従
+    this.position.y += dy;
+
+    // X / Z 方向は壁コライダーと衝突チェックしながら移動（絶対に壁を貫通しない！）
+    const onStairs = Math.abs(dy) > 0.002;
+    if (onStairs || !colliders) {
+      this.position.x += dx;
+      this.position.z += dz;
+    } else {
+      const subSteps = Math.max(1, Math.ceil(Math.hypot(dx, dz) / 0.08));
+      const sx = dx / subSteps;
+      const sz = dz / subSteps;
+      for (let i = 0; i < subSteps; i++) {
+        if (!this.collidesAt(this.position.x + sx, this.position.y, this.position.z, colliders)) {
+          this.position.x += sx;
+        }
+        if (!this.collidesAt(this.position.x, this.position.y, this.position.z + sz, colliders)) {
+          this.position.z += sz;
+        }
+      }
     }
+
+    const targetAngle = Math.atan2(dir.x, dir.z);
+    let diff = targetAngle - this.group.rotation.y;
+    while (diff > Math.PI) diff -= Math.PI * 2;
+    while (diff < -Math.PI) diff += Math.PI * 2;
+    this.group.rotation.y += diff * Math.min(1, dt * 8);
+
     this.group.position.copy(this.position);
+    const actuallyMoved = Math.hypot(this.position.x - prevX, this.position.z - prevZ) + Math.abs(dy);
+    return actuallyMoved > step * 0.15;
   }
 
   animateBody(dt) {

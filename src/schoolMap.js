@@ -627,8 +627,10 @@ export function buildSchoolMap(scene, textures) {
       addWindowWall('x', 16, 10, 14, y, mats.wall);
     }
 
-    // --- 中庭に面したコの字の窓壁 ---
+    // --- 中庭に面したコの字の窓壁 ＋ 北棟廊下と西棟/東棟部屋の仕切り壁（Z = -6） ---
     addWindowWall('x', -6, -10, 10, y, mats.wall);   // 北棟南側（中庭の北面）
+    addBox(-22, -14, y, y + FLOOR_H, -6 - WALL_T / 2, -6 + WALL_T / 2, mats.wall, true, true); // 北棟廊下と西棟部屋の境界壁
+    addBox(14, 22, y, y + FLOOR_H, -6 - WALL_T / 2, -6 + WALL_T / 2, mats.wall, true, true);   // 北棟廊下と東棟部屋の境界壁
     addWindowWall('z', -10, -6, 16, y, mats.wall);   // 西棟東側（中庭の西面）
     addWindowWall('z', 10, -6, 16, y, mats.wall);    // 東棟西側（中庭の東面）
 
@@ -638,14 +640,18 @@ export function buildSchoolMap(scene, textures) {
     // 東階段（X = +14..+22, Z = -18..-10）
     addBox(14 - WALL_T / 2, 14 + WALL_T / 2, y, y + FLOOR_H, -18, -10, mats.wall, true, true);
 
-    // 階段の「行けないレーン」を柵でガード（1Fは左レーン塞ぐ、3Fは右レーン塞ぐ）
+    // 階段の「行けないレーン」を柵でガード（視覚は1.3m、見えない当たり判定は2.4mで完全ガード）
     if (f === 0) {
-      addBox(-22, -18, y, y + 1.3, -10.2, -9.9, mats.metalDark, true); // 西階段1F左ガード
-      addBox(14, 18, y, y + 1.3, -10.2, -9.9, mats.metalDark, true);   // 東階段1F左ガード
+      addBox(-22, -18, y, y + 1.3, -10.2, -9.9, mats.metalDark, true);
+      colliders.push({ minX: -22, maxX: -18, minY: y, maxY: y + 2.4, minZ: -10.25, maxZ: -9.85 });
+      addBox(14, 18, y, y + 1.3, -10.2, -9.9, mats.metalDark, true);
+      colliders.push({ minX: 14, maxX: 18, minY: y, maxY: y + 2.4, minZ: -10.25, maxZ: -9.85 });
     }
     if (f === 2) {
-      addBox(-18, -14, y, y + 1.3, -10.2, -9.9, mats.metalDark, true); // 西階段3F右ガード
-      addBox(18, 22, y, y + 1.3, -10.2, -9.9, mats.metalDark, true);   // 東階段3F右ガード
+      addBox(-18, -14, y, y + 1.3, -10.2, -9.9, mats.metalDark, true);
+      colliders.push({ minX: -18, maxX: -14, minY: y, maxY: y + 2.4, minZ: -10.25, maxZ: -9.85 });
+      addBox(18, 22, y, y + 1.3, -10.2, -9.9, mats.metalDark, true);
+      colliders.push({ minX: 18, maxX: 22, minY: y, maxY: y + 2.4, minZ: -10.25, maxZ: -9.85 });
     }
 
     // --- 北棟の部屋仕切り＆廊下壁（Z = -10） ---
@@ -794,8 +800,12 @@ export function buildSchoolMap(scene, textures) {
     addBox(38 - WALL_T / 2, 38 + WALL_T / 2, y, y + FLOOR_H, -10, -2, mats.annexWall, true, true);
     if (f === 0) {
       addBox(32, 35, 0, 1.3, -2.2, -1.9, mats.metalDark, true); // 1F左ガード
+      colliders.push({ minX: 32, maxX: 35, minY: 0, maxY: 2.4, minZ: -2.25, maxZ: -1.85 });
     } else {
       addBox(35, 38, 4, 5.3, -2.2, -1.9, mats.metalDark, true); // 2F右ガード
+      colliders.push({ minX: 35, maxX: 38, minY: 4, maxY: 6.4, minZ: -2.25, maxZ: -1.85 });
+      // 音楽室西側の2m隙間（X=36..38, Z=-2）を完全封鎖
+      addBox(36, 38, y, y + FLOOR_H, -2 - WALL_T / 2, -2 + WALL_T / 2, mats.annexWall, true, true);
     }
 
     // 別館内の部屋割り
