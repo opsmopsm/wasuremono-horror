@@ -2,8 +2,8 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>忘れ物 — PS1風 夜の校舎ホラー</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>忘れ物 — 夜の校舎ホラー</title>
   <link rel="stylesheet" href="./style.css" />
   <script type="importmap">
     {
@@ -69,6 +69,29 @@
         <div id="inv-score" class="inv-slot">折れたリードと楽譜</div>
       </div>
     </div>
+
+    <!-- スマホ専用タッチ操作UI（タッチ端末で自動表示） -->
+    <div id="mobile-controls" class="hidden">
+      <div id="joystick-zone">
+        <div id="joystick-base">
+          <div id="joystick-knob"></div>
+        </div>
+        <div class="joy-hint">移動（大きく倒すと走る）</div>
+      </div>
+
+      <div id="mobile-action-pad">
+        <button id="btn-interact" class="mob-btn primary">調べる</button>
+        <div class="mob-row">
+          <button id="btn-flashlight" class="mob-btn">ライト</button>
+          <button id="btn-crouch" class="mob-btn">しゃがむ</button>
+        </div>
+        <div class="mob-row">
+          <button id="btn-map" class="mob-btn">地図</button>
+          <button id="btn-quality" class="mob-btn">画質</button>
+          <button id="btn-pause" class="mob-btn">停止</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- 校舎見取り図モーダル -->
@@ -90,7 +113,8 @@
         <div><strong>WASD</strong>：移動　／　<strong>マウス</strong>：視点</div>
         <div><strong>Shift</strong>：走る　／　<strong>C</strong>：しゃがむ（見つかりにくくなる）</div>
         <div><strong>E</strong>：ドア開閉・ロッカーに隠れる・話す・調べる・取る</div>
-        <div><strong>F</strong>：懐中電灯 ON/OFF　／　<strong>M</strong>：校舎見取り図　／　<strong>P</strong>：PS1画質切替</div>
+        <div><strong>F</strong>：懐中電灯 ON/OFF　／　<strong>M</strong>：校舎見取り図　／　<strong>P</strong>：画質切替</div>
+        <div><strong>スマホ</strong>：左下スティック移動（大きく倒すと走る）・画面右側ドラッグで視点・右下ボタンで操作</div>
       </div>
       <div id="title-endings" class="ending-tracker"></div>
       <button id="start-btn" class="retro-btn">校舎に入る</button>

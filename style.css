@@ -9,6 +9,8 @@ html, body {
   width: 100%;
   height: 100%;
   overflow: hidden;
+  touch-action: none;
+  overscroll-behavior: none;
   background: #030407;
   color: #e4dfd1;
   font-family: "Yu Mincho", "Hiragino Mincho ProN", "MS PMincho", serif;
@@ -401,9 +403,9 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.65);
+  background: rgba(0, 0, 0, 0.7);
   z-index: 15;
-  pointer-events: none;
+  pointer-events: auto;
 }
 
 #map-canvas {
@@ -508,4 +510,190 @@ h2 {
 
 .retro-btn:active {
   transform: translateY(1px);
+}
+
+/* =========================================================================
+   スマホ専用タッチ操作UI ＆ レスポンシブ調整
+   ========================================================================= */
+#mobile-controls {
+  position: fixed;
+  inset: 0;
+  z-index: 14;
+  pointer-events: none;
+}
+
+#joystick-zone {
+  position: absolute;
+  left: 20px;
+  bottom: 24px;
+  width: 144px;
+  height: 162px;
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  touch-action: none;
+}
+
+#joystick-base {
+  position: relative;
+  width: 122px;
+  height: 122px;
+  border-radius: 50%;
+  background: rgba(14, 18, 24, 0.52);
+  border: 2px solid rgba(220, 212, 195, 0.42);
+  box-shadow: inset 0 0 18px rgba(0, 0, 0, 0.75);
+}
+
+#joystick-knob {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 50px;
+  height: 50px;
+  margin: -25px 0 0 -25px;
+  border-radius: 50%;
+  background: rgba(212, 204, 188, 0.68);
+  border: 2px solid rgba(255, 245, 225, 0.85);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.7);
+  transition: transform 0.04s linear;
+}
+
+.joy-hint {
+  margin-top: 6px;
+  font-size: 10px;
+  color: rgba(225, 220, 205, 0.78);
+  text-shadow: 0 1px 3px #000;
+}
+
+#mobile-action-pad {
+  position: absolute;
+  right: 18px;
+  bottom: 22px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  pointer-events: auto;
+  touch-action: none;
+}
+
+.mob-row {
+  display: flex;
+  gap: 8px;
+}
+
+.mob-btn {
+  min-width: 60px;
+  height: 44px;
+  padding: 0 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(215, 208, 192, 0.48);
+  background: rgba(14, 16, 22, 0.74);
+  color: #f0ebe0;
+  font-family: "Yu Gothic", sans-serif;
+  font-size: 12.5px;
+  font-weight: bold;
+  letter-spacing: 0.04em;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.75);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mob-btn:active {
+  transform: scale(0.95);
+  background: rgba(60, 64, 74, 0.88);
+}
+
+.mob-btn.primary {
+  min-width: 132px;
+  height: 50px;
+  font-size: 14px;
+  border-color: rgba(220, 170, 150, 0.55);
+}
+
+.mob-btn.primary.ready {
+  background: rgba(148, 22, 34, 0.9);
+  border-color: #ff8c96;
+  box-shadow: 0 0 14px rgba(215, 32, 48, 0.7);
+}
+
+.mob-btn.active-state {
+  background: rgba(102, 74, 28, 0.88);
+  border-color: #e4bc6a;
+  color: #fff3d2;
+}
+
+/* タッチ端末 / 狭い画面向けレイアウト最適化 */
+body.touch-mode #top-right .hint-line {
+  display: none;
+}
+
+body.touch-mode #bottom-left {
+  bottom: auto;
+  top: 76px;
+  left: 14px;
+  width: 145px;
+}
+
+body.touch-mode #inventory-hud {
+  bottom: auto;
+  top: 52px;
+  right: 12px;
+  min-width: 148px;
+  padding: 6px 8px;
+}
+
+body.touch-mode .inv-slot {
+  font-size: 9.5px;
+  padding: 3px 4px;
+}
+
+body.touch-mode #subtitle {
+  bottom: 190px;
+  padding: 9px 14px;
+  width: min(560px, 92vw);
+}
+
+body.touch-mode #dialogue-text {
+  font-size: 13.5px;
+}
+
+@media (max-width: 768px) {
+  .title-card {
+    padding: 22px 18px;
+    max-height: 92vh;
+    overflow-y: auto;
+  }
+  h1 {
+    font-size: 36px;
+    margin-bottom: 12px;
+  }
+  .story-lead {
+    font-size: 13px;
+    line-height: 1.7;
+    margin-bottom: 14px;
+  }
+  .controls-box {
+    font-size: 11px;
+    padding: 9px 12px;
+    margin-bottom: 14px;
+  }
+  #top-left {
+    top: 10px;
+    left: 10px;
+    padding: 6px 10px;
+  }
+  #area-label {
+    font-size: 13px;
+  }
+  #objective-label {
+    font-size: 11px;
+  }
+  #top-right {
+    top: 10px;
+    right: 10px;
+    padding: 5px 8px;
+    font-size: 10.5px;
+  }
 }

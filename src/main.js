@@ -45,6 +45,26 @@ const mapModal = document.getElementById('map-modal');
 const mapCanvas = document.getElementById('map-canvas');
 const qualityBadge = document.getElementById('quality-badge');
 
+const mobileControls = document.getElementById('mobile-controls');
+const joystickZone = document.getElementById('joystick-zone');
+const joystickKnob = document.getElementById('joystick-knob');
+const btnInteract = document.getElementById('btn-interact');
+const btnFlashlight = document.getElementById('btn-flashlight');
+const btnCrouch = document.getElementById('btn-crouch');
+const btnMap = document.getElementById('btn-map');
+const btnQuality = document.getElementById('btn-quality');
+const btnPause = document.getElementById('btn-pause');
+
+// タッチ端末（スマホ・タブレット）自動判定
+let isTouchMode = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || window.innerWidth <= 900;
+function applyTouchModeUI() {
+  document.body.classList.toggle('touch-mode', isTouchMode);
+  if (mobileControls) {
+    mobileControls.classList.toggle('hidden', !isTouchMode);
+  }
+}
+applyTouchModeUI();
+
 const invSlots = {
   pouch: document.getElementById('inv-pouch'),
   tape: document.getElementById('inv-tape'),
@@ -127,7 +147,8 @@ function updateResolution() {
     if (scanlinesEl) scanlinesEl.classList.remove('subtle');
     if (qualityBadge) qualityBadge.textContent = '画質: PS1レトロ [P]';
   } else {
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    const maxPR = isTouchMode ? 1.5 : 2;
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, maxPR));
     renderer.setSize(window.innerWidth, window.innerHeight, false);
     canvas.classList.remove('pixelated');
     if (scanlinesEl) scanlinesEl.classList.add('subtle');
@@ -150,8 +171,9 @@ scene.add(ambient);
 // 手持ちの懐中電灯（リアルタイム・ソフトシャドウ投射！）
 const flashlight = new THREE.SpotLight(0xfff1d2, 5.2, 32, Math.PI / 4.8, 0.62, 1.35);
 flashlight.castShadow = true;
-flashlight.shadow.mapSize.width = 1024;
-flashlight.shadow.mapSize.height = 1024;
+const shadowRes = isTouchMode ? 512 : 1024;
+flashlight.shadow.mapSize.width = shadowRes;
+flashlight.shadow.mapSize.height = shadowRes;
 flashlight.shadow.camera.near = 0.25;
 flashlight.shadow.camera.far = 30;
 flashlight.shadow.bias = -0.0008;
@@ -423,33 +445,68 @@ function activateRedCoatWoman(spawnPos, dialogueEntries = null) {
 }
 
 // =========================================================================
-// 入力管理
+// 入力管理（キーボード・マウス ＋ スマホ用マルチタッチ操作）
 // =========================================================================
 const keys = {};
+const touchJoy = { x: 0, y: 0, running: false, id: null, cx: 0, cy: 0 };
+const touchLook = { id: null, lastX: 0, lastY: 0 };
+
+function requestLockIfDesktop() {
+  if (!isTouchMode && canvas.requestPointerLock) {
+    try {
+      canvas.requestPointerLock();
+    } catch {
+      // ignore
+    }
+  }
+}
+
+function exitLockSafe() {
+  if (document.pointerLockElement && document.exitPointerLock) {
+    try {
+      document.exitPointerLock();
+    } catch {
+      // ignore
+    }
+  }
+}
+
+function toggleFlashlight() {
+  if (player.hiding) return;
+  player.flashlightOn = !player.flashlightOn;
+  audio.playFlashlightClick();
+}
+
+function toggleCrouch() {
+  if (player.hiding) return;
+  player.crouching = !player.crouching;
+}
+
+function triggerInteractOrExit() {
+  if (player.hiding) {
+    exitLocker(false);
+  } else {
+    tryInteract();
+  }
+}
+
+function toggleMapModal() {
+  mapOpen = !mapOpen;
+  mapModal.classList.toggle('hidden', !mapOpen);
+  if (mapOpen) drawSchoolMap2D();
+}
+
 window.addEventListener('keydown', (e) => {
   keys[e.code] = true;
 
   if (gameState !== 'playing') return;
 
-  if (e.code === 'KeyF' && !player.hiding) {
-    player.flashlightOn = !player.flashlightOn;
-    audio.playFlashlightClick();
-  }
-  if ((e.code === 'KeyC' || e.code === 'ControlLeft') && !player.hiding) {
-    player.crouching = !player.crouching;
-  }
-  if (e.code === 'KeyE') {
-    if (player.hiding) {
-      exitLocker(false);
-    } else {
-      tryInteract();
-    }
-  }
+  if (e.code === 'KeyF') toggleFlashlight();
+  if (e.code === 'KeyC' || e.code === 'ControlLeft') toggleCrouch();
+  if (e.code === 'KeyE') triggerInteractOrExit();
   if (e.code === 'KeyM' || e.code === 'Tab') {
     e.preventDefault();
-    mapOpen = !mapOpen;
-    mapModal.classList.toggle('hidden', !mapOpen);
-    if (mapOpen) drawSchoolMap2D();
+    toggleMapModal();
   }
   if (e.code === 'KeyP') {
     ps1Mode = !ps1Mode;
@@ -460,6 +517,148 @@ window.addEventListener('keydown', (e) => {
 window.addEventListener('keyup', (e) => {
   keys[e.code] = false;
 });
+
+// タッチ操作を初めて検出したら自動でスマホUIを有効化
+window.addEventListener('touchstart', () => {
+  if (!isTouchMode) {
+    isTouchMode = true;
+    applyTouchModeUI();
+  }
+}, { passive: true });
+
+// --- バーチャルジョイスティック（左手移動＋大きく倒すと自動ダッシュ！） ---
+if (joystickZone && joystickKnob) {
+  const maxR = 46;
+  const updateJoyFromPoint = (clientX, clientY) => {
+    const dx = clientX - touchJoy.cx;
+    const dy = clientY - touchJoy.cy;
+    const dist = Math.hypot(dx, dy);
+    const clamped = Math.min(maxR, dist);
+    const angle = Math.atan2(dy, dx);
+    const nx = dist > 4 ? (Math.cos(angle) * clamped) / maxR : 0;
+    const ny = dist > 4 ? (Math.sin(angle) * clamped) / maxR : 0;
+    touchJoy.x = nx;
+    touchJoy.y = ny;
+    touchJoy.running = (clamped / maxR) > 0.82;
+    joystickKnob.style.transform = `translate(${nx * maxR}px, ${ny * maxR}px)`;
+  };
+
+  joystickZone.addEventListener('touchstart', (e) => {
+    if (gameState !== 'playing') return;
+    e.preventDefault();
+    const t = e.changedTouches[0];
+    const rect = joystickZone.getBoundingClientRect();
+    touchJoy.id = t.identifier;
+    touchJoy.cx = rect.left + rect.width / 2;
+    touchJoy.cy = rect.top + rect.height / 2 - 8;
+    updateJoyFromPoint(t.clientX, t.clientY);
+  }, { passive: false });
+
+  joystickZone.addEventListener('touchmove', (e) => {
+    if (touchJoy.id === null) return;
+    e.preventDefault();
+    for (const t of e.changedTouches) {
+      if (t.identifier === touchJoy.id) {
+        updateJoyFromPoint(t.clientX, t.clientY);
+      }
+    }
+  }, { passive: false });
+
+  const endJoy = (e) => {
+    for (const t of e.changedTouches) {
+      if (t.identifier === touchJoy.id) {
+        touchJoy.id = null;
+        touchJoy.x = 0;
+        touchJoy.y = 0;
+        touchJoy.running = false;
+        joystickKnob.style.transform = 'translate(0px, 0px)';
+      }
+    }
+  };
+  joystickZone.addEventListener('touchend', endJoy);
+  joystickZone.addEventListener('touchcancel', endJoy);
+}
+
+// --- 画面スワイプで視点操作（右手ドラッグ、ロッカー内でも覗ける！） ---
+canvas.addEventListener('touchstart', (e) => {
+  if (gameState !== 'playing') return;
+  for (const t of e.changedTouches) {
+    if (touchLook.id === null && t.identifier !== touchJoy.id) {
+      touchLook.id = t.identifier;
+      touchLook.lastX = t.clientX;
+      touchLook.lastY = t.clientY;
+    }
+  }
+}, { passive: true });
+
+canvas.addEventListener('touchmove', (e) => {
+  if (gameState !== 'playing' || touchLook.id === null) return;
+  e.preventDefault();
+  for (const t of e.changedTouches) {
+    if (t.identifier === touchLook.id) {
+      const dx = t.clientX - touchLook.lastX;
+      const dy = t.clientY - touchLook.lastY;
+      touchLook.lastX = t.clientX;
+      touchLook.lastY = t.clientY;
+      const sens = 0.0046;
+      if (player.hiding) {
+        player.peekYawOffset = Math.max(-0.56, Math.min(0.56, player.peekYawOffset - dx * sens));
+        player.peekPitch = Math.max(-0.28, Math.min(0.28, player.peekPitch - dy * sens));
+      } else {
+        player.yaw -= dx * sens;
+        player.pitch = Math.max(-1.25, Math.min(1.25, player.pitch - dy * sens));
+      }
+    }
+  }
+}, { passive: false });
+
+const endLook = (e) => {
+  for (const t of e.changedTouches) {
+    if (t.identifier === touchLook.id) {
+      touchLook.id = null;
+    }
+  }
+};
+canvas.addEventListener('touchend', endLook);
+canvas.addEventListener('touchcancel', endLook);
+
+// --- スマホ用アクションボタン ---
+function bindMobileBtn(el, handler) {
+  if (!el) return;
+  el.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (gameState === 'playing') handler();
+  }, { passive: false });
+  el.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (gameState === 'playing') handler();
+  });
+}
+
+bindMobileBtn(btnInteract, triggerInteractOrExit);
+bindMobileBtn(btnFlashlight, toggleFlashlight);
+bindMobileBtn(btnCrouch, toggleCrouch);
+bindMobileBtn(btnMap, toggleMapModal);
+bindMobileBtn(btnQuality, () => {
+  ps1Mode = !ps1Mode;
+  updateResolution();
+});
+bindMobileBtn(btnPause, () => {
+  gameState = 'paused';
+  pauseScreen.classList.remove('hidden');
+});
+
+// 見取り図モーダルはタップ／クリックでも閉じられる
+mapModal.addEventListener('click', () => {
+  if (mapOpen) toggleMapModal();
+});
+mapModal.addEventListener('touchstart', (e) => {
+  if (mapOpen) {
+    e.preventDefault();
+    toggleMapModal();
+  }
+}, { passive: false });
 
 window.addEventListener('mousemove', (e) => {
   if (gameState !== 'playing' || document.pointerLockElement !== canvas) return;
@@ -474,15 +673,15 @@ window.addEventListener('mousemove', (e) => {
 });
 
 document.addEventListener('pointerlockchange', () => {
-  if (document.pointerLockElement !== canvas && gameState === 'playing') {
+  if (!isTouchMode && document.pointerLockElement !== canvas && gameState === 'playing') {
     gameState = 'paused';
     pauseScreen.classList.remove('hidden');
   }
 });
 
 canvas.addEventListener('click', () => {
-  if (gameState === 'playing' && document.pointerLockElement !== canvas) {
-    canvas.requestPointerLock();
+  if (gameState === 'playing' && !isTouchMode && document.pointerLockElement !== canvas) {
+    requestLockIfDesktop();
   }
 });
 
@@ -492,27 +691,27 @@ startBtn.addEventListener('click', () => {
   titleScreen.classList.add('hidden');
   hud.classList.remove('hidden');
   gameState = 'playing';
-  canvas.requestPointerLock();
+  requestLockIfDesktop();
 });
 
 resumeBtn.addEventListener('click', () => {
   pauseScreen.classList.add('hidden');
   gameState = 'playing';
-  canvas.requestPointerLock();
+  requestLockIfDesktop();
 });
 
 retryBtn.addEventListener('click', () => {
   gameoverScreen.classList.add('hidden');
   resetGame();
   gameState = 'playing';
-  canvas.requestPointerLock();
+  requestLockIfDesktop();
 });
 
 playAgainBtn.addEventListener('click', () => {
   clearScreen.classList.add('hidden');
   resetGame();
   gameState = 'playing';
-  canvas.requestPointerLock();
+  requestLockIfDesktop();
 });
 
 // =========================================================================
@@ -595,8 +794,12 @@ function updatePlayer(dt) {
   if (keys['KeyD'] || keys['ArrowRight']) move.add(right);
   if (keys['KeyA'] || keys['ArrowLeft']) move.sub(right);
 
+  // スマホのバーチャルジョイスティック入力を合成
+  if (Math.abs(touchJoy.y) > 0.08) move.addScaledVector(forward, -touchJoy.y);
+  if (Math.abs(touchJoy.x) > 0.08) move.addScaledVector(right, touchJoy.x);
+
   const isMoving = move.lengthSq() > 0.001;
-  const wantsRun = (keys['ShiftLeft'] || keys['ShiftRight']) && isMoving && !player.crouching && player.stamina > 2;
+  const wantsRun = ((keys['ShiftLeft'] || keys['ShiftRight']) || touchJoy.running) && isMoving && !player.crouching && player.stamina > 2;
 
   if (wantsRun) {
     player.stamina = Math.max(0, player.stamina - 24 * dt);
@@ -999,7 +1202,7 @@ function tryInteract() {
 
     // 忘れ物ポーチを持っている状態で脱出！
     gameState = 'clear';
-    document.exitPointerLock();
+    exitLockSafe();
     enemy.deactivate();
     clearCard.classList.remove('true-end');
 
@@ -1035,7 +1238,7 @@ function tryInteract() {
 function showBadEnding(id, eyebrow, title, body) {
   if (player.hiding) exitLocker(true);
   gameState = 'gameover';
-  document.exitPointerLock();
+  exitLockSafe();
   enemy.deactivate();
   unlockEnding(id);
   gameoverEyebrow.textContent = eyebrow;
@@ -1054,7 +1257,7 @@ function triggerJumpscare(customMsg = null, reason = 'catch') {
   promptEl.classList.remove('visible');
   mapModal.classList.add('hidden');
   if (customMsg) showDialogue('赤いコートの女', customMsg, 2.0, true);
-  document.exitPointerLock();
+  exitLockSafe();
 }
 
 // =========================================================================
@@ -1094,7 +1297,7 @@ function drawSchoolMap2D() {
   ctx.fillStyle = '#e5dfcc';
   ctx.font = 'bold 14px "Yu Gothic", sans-serif';
   ctx.textAlign = 'left';
-  ctx.fillText(`校舎見取り図 【現在: ${floorNum}F】  ■緑=隠れロッカー  ★金=重要アイテム  (Mで閉じる)`, 18, 22);
+  ctx.fillText(`校舎見取り図 【現在: ${floorNum}F】  ■緑=ロッカー  ★金=重要アイテム  (タップ/Mで閉じる)`, 18, 22);
 
   drawRect(-22, -10, 22, -6, '#363a35', '北棟廊下');
   drawRect(-14, -6, -10, 16, '#363a35');
@@ -1213,6 +1416,22 @@ function animate(now) {
       promptEl.classList.add('visible');
     } else {
       promptEl.classList.remove('visible');
+    }
+
+    // スマホボタンの状態をリアルタイム更新
+    if (isTouchMode && btnInteract) {
+      if (player.hiding) {
+        btnInteract.textContent = '外へ出る';
+        btnInteract.classList.add('ready');
+      } else if (near) {
+        btnInteract.textContent = near.label.replace(/\s*\[E\]/g, '');
+        btnInteract.classList.add('ready');
+      } else {
+        btnInteract.textContent = '調べる';
+        btnInteract.classList.remove('ready');
+      }
+      if (btnFlashlight) btnFlashlight.classList.toggle('active-state', player.flashlightOn);
+      if (btnCrouch) btnCrouch.classList.toggle('active-state', player.crouching);
     }
 
     npcs.update(dt, player.pos, {
