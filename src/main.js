@@ -14,10 +14,21 @@ const startBtn = document.getElementById('start-btn');
 const pauseScreen = document.getElementById('pause-screen');
 const resumeBtn = document.getElementById('resume-btn');
 const gameoverScreen = document.getElementById('gameover-screen');
+const gameoverEyebrow = document.getElementById('gameover-eyebrow');
+const gameoverTitle = document.getElementById('gameover-title');
+const gameoverText = document.getElementById('gameover-text');
 const retryBtn = document.getElementById('retry-btn');
+
 const clearScreen = document.getElementById('clear-screen');
+const clearCard = document.getElementById('clear-card');
+const clearEyebrow = document.getElementById('clear-eyebrow');
+const clearTitle = document.getElementById('clear-title');
 const clearText = document.getElementById('clear-text');
 const playAgainBtn = document.getElementById('play-again-btn');
+
+const titleEndingsEl = document.getElementById('title-endings');
+const gameoverEndingsEl = document.getElementById('gameover-endings');
+const clearEndingsEl = document.getElementById('clear-endings');
 
 const hud = document.getElementById('hud');
 const areaLabel = document.getElementById('area-label');
@@ -33,6 +44,57 @@ const lockerSlitOverlay = document.getElementById('locker-slit-overlay');
 const mapModal = document.getElementById('map-modal');
 const mapCanvas = document.getElementById('map-canvas');
 const qualityBadge = document.getElementById('quality-badge');
+
+const invSlots = {
+  pouch: document.getElementById('inv-pouch'),
+  tape: document.getElementById('inv-tape'),
+  key: document.getElementById('inv-key'),
+  score: document.getElementById('inv-score')
+};
+
+// =========================================================================
+// エンディング達成図鑑（localStorage 永続化）
+// =========================================================================
+const ENDING_DEFS = [
+  { id: 'bad1', label: 'BAD① 新しい忘れ物', kind: 'bad' },
+  { id: 'bad2', label: 'BAD② 明日でいいか', kind: 'bad' },
+  { id: 'normal', label: 'NORMAL 逃げ切った夜', kind: 'normal' },
+  { id: 'true', label: 'TRUE もう、忘れない', kind: 'true' }
+];
+const STORAGE_KEY = 'wasuremono_unlocked_endings_v1';
+
+function loadUnlockedEndings() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return new Set(raw ? JSON.parse(raw) : []);
+  } catch {
+    return new Set();
+  }
+}
+
+const unlockedEndings = loadUnlockedEndings();
+
+function unlockEnding(id) {
+  unlockedEndings.add(id);
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify([...unlockedEndings]));
+  } catch {
+    // ignore storage errors
+  }
+  renderEndingTrackers();
+}
+
+function renderEndingTrackers() {
+  const html = ENDING_DEFS.map((e) => {
+    const unlocked = unlockedEndings.has(e.id);
+    const cls = unlocked ? `end-badge unlocked-${e.kind}` : 'end-badge';
+    return `<span class="${cls}">${unlocked ? '★ ' + e.label : '？ ' + e.label.split(' ')[0]}</span>`;
+  }).join('');
+  [titleEndingsEl, gameoverEndingsEl, clearEndingsEl].forEach((el) => {
+    if (el) el.innerHTML = html;
+  });
+}
+renderEndingTrackers();
 
 // =========================================================================
 // Three.js セットアップ（PS1風低解像度レンダラー）
@@ -67,7 +129,6 @@ const camera = new THREE.PerspectiveCamera(68, window.innerWidth / Math.max(1, w
 const ambient = new THREE.AmbientLight(0x232c3d, 0.6);
 scene.add(ambient);
 
-// 手持ちの懐中電灯
 const flashlight = new THREE.SpotLight(0xfff4d6, 3.8, 28, Math.PI / 5.2, 0.45, 1.45);
 const flashlightTarget = new THREE.Object3D();
 scene.add(flashlight);
@@ -87,7 +148,7 @@ const enemy = new RedCoatWoman(scene, textures);
 const npcs = new SchoolNPCs(scene);
 
 // =========================================================================
-// ゲーム状態・プレイヤー状態
+// ゲーム状態・プレイヤー状態・ストーリー進行
 // =========================================================================
 let gameState = 'title'; // title | playing | paused | jumpscare | gameover | clear
 let mapOpen = false;
@@ -113,18 +174,51 @@ const player = {
 
 const story = {
   checkedDesk: false,
-  hasPouch: false,
   enemyTriggered: false,
   entered2A: false,
   enteredMusicRoom: false,
+  enteredScienceScare: false,
+  enteredArtScare: false,
   hidFirstTime: false,
+  giveUpCount: 0,        // 忘れ物なしで昇降口を調べた回数（2回目でBAD END②）
+  sealedWarnCount: 0,    // 準備不足で楽器庫を開けようとした回数（2回目でBAD END①罠）
+  tapePlayed: false,
+  ghostReleased: false,  // TRUE END 条件達成フラグ
+  items: {
+    pouch: false,
+    tape: false,
+    key: false,
+    score: false
+  },
   notesFound: new Set()
 };
 
-// セリフキュー管理（話者名つき）
 let dialogueQueue = [];
 let subtitleTimer = 0;
 let jumpscareTimer = 0;
+let pendingBadEnding = 'bad1';
+
+function updateInventoryHUD() {
+  for (const [k, el] of Object.entries(invSlots)) {
+    if (el) el.classList.toggle('owned', !!story.items[k]);
+  }
+}
+
+function updateObjectiveText() {
+  if (story.ghostReleased) {
+    objectiveLabel.textContent = story.items.pouch
+      ? '目標: 静かになった校舎の1F出口から外へ出る（TRUE END）'
+      : '目標: 音楽室で自分の忘れ物ポーチを取って1F出口へ向かう';
+  } else if (story.items.key && story.items.score) {
+    objectiveLabel.textContent = '目標: 別館2F 音楽準備室の「封鎖された楽器収納庫」を開放する！';
+  } else if (story.items.pouch) {
+    objectiveLabel.textContent = '目標: 1F出口から脱出する（または真相の鍵と楽譜を探して楽器庫を開放する）';
+  } else if (story.checkedDesk) {
+    objectiveLabel.textContent = '目標: 東棟2F渡り廊下から別館2Fの音楽室へ行く';
+  } else {
+    objectiveLabel.textContent = '目標: 2F 2年A組で忘れ物を探す';
+  }
+}
 
 function showDialogue(speaker, text, duration = 5.0, isGhost = false) {
   dialogueQueue = [];
@@ -160,7 +254,6 @@ function triggerFlash(color = 'rgba(255,255,255,0.45)', ms = 180) {
 function enterLocker(locker) {
   if (player.hiding) return;
 
-  // 敵に目の前で見られながら入ったか判定！
   const enemyDist = enemy.position.distanceTo(player.pos);
   const sameFloor = Math.abs(enemy.position.y - player.pos.y) < 1.8;
   player.seenHiding = (
@@ -175,7 +268,7 @@ function enterLocker(locker) {
   player.hidingLocker = locker;
   player.crouching = false;
   player.savedFlashlightOn = player.flashlightOn;
-  player.flashlightOn = false; // ロッカー内では光が漏れないよう消灯
+  player.flashlightOn = false;
   player.peekYawOffset = 0;
   player.peekPitch = 0;
   player.heartbeatTimer = 0.2;
@@ -214,6 +307,9 @@ function exitLocker(silent = false) {
   }
 }
 
+// =========================================================================
+// リセット＆起動
+// =========================================================================
 function resetGame() {
   if (player.hiding) exitLocker(true);
 
@@ -226,12 +322,23 @@ function resetGame() {
   player.crouching = false;
 
   story.checkedDesk = false;
-  story.hasPouch = false;
   story.enemyTriggered = false;
   story.entered2A = false;
   story.enteredMusicRoom = false;
+  story.enteredScienceScare = false;
+  story.enteredArtScare = false;
   story.hidFirstTime = false;
+  story.giveUpCount = 0;
+  story.sealedWarnCount = 0;
+  story.tapePlayed = false;
+  story.ghostReleased = false;
+  story.items = { pouch: false, tape: false, key: false, score: false };
   story.notesFound.clear();
+
+  // 夜の暗闇に戻す
+  scene.fog.density = 0.082;
+  scene.fog.color.setHex(0x04060b);
+  ambient.intensity = 0.6;
 
   for (const d of schoolMap.doors) {
     d.isOpen = false;
@@ -246,17 +353,22 @@ function resetGame() {
     l.collider.active = true;
   }
 
-  const pouchItem = schoolMap.interactables.find((i) => i.id === 'forgotten_pouch');
-  if (pouchItem) {
-    pouchItem.collected = false;
-    pouchItem.mesh.visible = true;
-    pouchItem.light.visible = true;
+  for (const item of schoolMap.interactables) {
+    if (item.type === 'pouch' || item.type === 'key_item') {
+      item.collected = false;
+      if (item.mesh) item.mesh.visible = true;
+      if (item.light) item.light.visible = true;
+    }
+    if (item.id === 'sealed_locker') {
+      if (item.releaseLight) item.releaseLight.intensity = 0.0;
+    }
   }
 
   enemy.deactivate();
   npcs.reset();
 
-  objectiveLabel.textContent = '目標: 2F 2年A組で忘れ物を探す';
+  updateInventoryHUD();
+  updateObjectiveText();
   dangerVignette.style.opacity = '0';
   lockerSlitOverlay.classList.add('hidden');
   mapOpen = false;
@@ -266,18 +378,18 @@ function resetGame() {
     {
       speaker: '美咲',
       text: '「吹奏楽部の片付けで、すっかり夜になっちゃった……」',
-      duration: 3.8
+      duration: 3.6
     },
     {
       speaker: '美咲',
-      text: '「友達には先に帰ってもらったけど、家の鍵と楽譜のポーチを2年A組の机に忘れたはず。早く取って帰ろう！」',
-      duration: 5.5
+      text: '「友達の由香には先に帰ってもらったけど、家の鍵と楽譜のポーチを2年A組の机に忘れたはず。早く取って帰ろう！」',
+      duration: 5.4
     }
   ]);
 }
 
 function activateRedCoatWoman(spawnPos, dialogueEntries = null) {
-  if (story.enemyTriggered) return;
+  if (story.enemyTriggered || story.ghostReleased) return;
   story.enemyTriggered = true;
   npcs.vanishAll();
   enemy.activate(spawnPos || new THREE.Vector3(34, 4, 5));
@@ -328,7 +440,6 @@ window.addEventListener('mousemove', (e) => {
   if (gameState !== 'playing' || document.pointerLockElement !== canvas) return;
   const sens = 0.0022;
   if (player.hiding) {
-    // ロッカー内では隙間から左右±32°・上下±16°だけ覗き込める！
     player.peekYawOffset = Math.max(-0.56, Math.min(0.56, player.peekYawOffset - e.movementX * sens));
     player.peekPitch = Math.max(-0.28, Math.min(0.28, player.peekPitch - e.movementY * sens));
   } else {
@@ -398,7 +509,6 @@ function collidesAt(x, y, z) {
 }
 
 function updatePlayer(dt) {
-  // ロッカー隠れ中
   if (player.hiding && player.hidingLocker) {
     const locker = player.hidingLocker;
     player.stamina = Math.min(100, player.stamina + 18 * dt);
@@ -410,7 +520,6 @@ function updatePlayer(dt) {
     camera.rotation.x = player.peekPitch;
 
     flashlight.visible = false;
-    // 隙間から廊下の様子がうっすら見えるよう極微弱ライトを少し前方に配置
     const fwd = new THREE.Vector3(-Math.sin(locker.faceYaw), 0, -Math.cos(locker.faceYaw));
     playerGlow.position.copy(locker.insideCamPos).addScaledVector(fwd, 0.8);
 
@@ -490,22 +599,37 @@ function updatePlayer(dt) {
   }
   playerGlow.position.copy(camera.position);
 
-  // エリア到達時の自動セリフ＆イベント
-  if (!story.entered2A && player.pos.y > 3 && player.pos.x > -6 && player.pos.x < 4 && player.pos.z < -10.3) {
+  // --- エリア到達時の自動セリフ＆フェイク恐怖イベント ---
+  if (!story.entered2A && player.pos.y > 3 && player.pos.y < 6 && player.pos.x > -6 && player.pos.x < 4 && player.pos.z < -10.3) {
     story.entered2A = true;
     showDialogue('美咲', '「2年A組に着いた……たしか真ん中の自分の机に置いたはずなんだけど……」', 4.5);
   }
 
-  if (!story.enemyTriggered && player.pos.x > 24 && player.pos.y > 2.5) {
+  if (!story.enemyTriggered && !story.ghostReleased && player.pos.x > 24 && player.pos.y > 2.5) {
     activateRedCoatWoman(new THREE.Vector3(34, 4, 7), [
-      { speaker: '美咲', text: '「……っ！ 急に空気が冷たくなった……渡り廊下の奥に、誰かいる？」', duration: 4.5 },
-      { speaker: '赤いコートの女', text: '「……ワスレモノ……ドコ……」', duration: 4.0, isGhost: true }
+      { speaker: '美咲', text: '「……っ！ 急に空気が冷たくなった……渡り廊下の奥に、誰かいる？」', duration: 4.2 },
+      { speaker: '赤いコートの女', text: '「……ワスレモノ……ドコ……」', duration: 3.8, isGhost: true }
     ]);
   }
 
-  if (!story.enteredMusicRoom && player.pos.y > 3 && player.pos.x > 36.5 && player.pos.z < 3.5) {
+  if (!story.enteredMusicRoom && player.pos.y > 3 && player.pos.y < 6 && player.pos.x > 36.5 && player.pos.z < 3.5) {
     story.enteredMusicRoom = true;
     showDialogue('美咲', '「音楽室……！ ピアノの上にポーチが見えた！ 危なかったらロッカーに隠れよう……」', 5.0);
+  }
+
+  // 3F 理科室フェイクびっくり（人体模型）
+  if (!story.enteredScienceScare && player.pos.y > 7 && player.pos.x > 6 && player.pos.x < 13.8 && player.pos.z < -11.5) {
+    story.enteredScienceScare = true;
+    audio.playThudScare();
+    triggerFlash('rgba(220, 235, 255, 0.25)', 140);
+    showDialogue('美咲', '「きゃっ！！ ……な、なんだ、人体模型か……びっくりした……」', 4.5);
+  }
+
+  // 別館1F 美術室フェイク演出（石膏像）
+  if (!story.enteredArtScare && player.pos.y < 2 && player.pos.x > 36.8 && player.pos.z > -1.8 && player.pos.z < 3.6) {
+    story.enteredArtScare = true;
+    audio.playThudScare();
+    showDialogue('美咲', '「うわっ……美術室の石膏像、今こっちを見た気がした……」', 4.5);
   }
 
   return {
@@ -519,7 +643,7 @@ function updatePlayer(dt) {
 }
 
 // =========================================================================
-// インタラクション（ロッカー・NPC・ドア・机・忘れ物・メモ・脱出）
+// インタラクション（ロッカー・NPC・ドア・机・忘れ物・鍵アイテム・楽器庫・脱出）
 // =========================================================================
 function findNearestTarget() {
   if (player.hiding) return null;
@@ -530,7 +654,6 @@ function findNearestTarget() {
   let best = null;
   let bestScore = Infinity;
 
-  // 1. 隠れられるロッカーチェック
   for (const l of schoolMap.lockers) {
     const dist = camPos.distanceTo(l.center);
     if (dist > 2.4) continue;
@@ -542,7 +665,6 @@ function findNearestTarget() {
     }
   }
 
-  // 2. NPC（警備員・顧問の先生）チェック
   for (const npc of npcs.getList()) {
     const npcCenter = npc.pos.clone().add(new THREE.Vector3(0, 1.35, 0));
     const dist = camPos.distanceTo(npcCenter);
@@ -555,7 +677,6 @@ function findNearestTarget() {
     }
   }
 
-  // 3. 引き戸チェック
   for (const d of schoolMap.doors) {
     const dist = camPos.distanceTo(d.center);
     if (dist > 2.6) continue;
@@ -567,7 +688,6 @@ function findNearestTarget() {
     }
   }
 
-  // 4. オブジェクトチェック
   for (const item of schoolMap.interactables) {
     if (item.collected) continue;
     const dist = camPos.distanceTo(item.position);
@@ -576,7 +696,15 @@ function findNearestTarget() {
     if (lookDir.dot(toTarget) < 0.25 && dist > 1.4) continue;
     if (dist < bestScore) {
       bestScore = dist;
-      best = { kind: 'item', ref: item, label: item.label };
+      let label = item.label;
+      if (item.type === 'sealed_locker') {
+        if (story.ghostReleased) label = '解放された楽器収納庫を見る [E]';
+        else if (story.items.key && story.items.score) label = '鍵と楽譜を使って楽器収納庫を開放する [E]';
+        else if (story.sealedWarnCount >= 1) label = '無理やり楽器収納庫をこじ開ける [E]（危険）';
+      } else if (item.id === 'exit_main' && !story.items.pouch && story.giveUpCount >= 1) {
+        label = '忘れ物を諦めてそのまま帰る [E]';
+      }
+      best = { kind: 'item', ref: item, label };
     }
   }
 
@@ -611,30 +739,44 @@ function tryInteract() {
   }
 
   const item = target.ref;
+
+  // --- 2年A組の自分の机 ---
   if (item.type === 'desk') {
     if (!story.checkedDesk) {
       story.checkedDesk = true;
       audio.playPickup();
-      objectiveLabel.textContent = '目標: 東棟2F渡り廊下から別館2Fの音楽室へ行く';
+      updateObjectiveText();
       activateRedCoatWoman(new THREE.Vector3(34, 4, 6), [
-        { speaker: '美咲', text: '「あれ……机の中にもロッカーにもない！？ どこに置いたっけ……！」', duration: 4.0 },
+        { speaker: '美咲', text: '「あれ……机の中にもロッカーにもない！？ どこに置いたっけ……！」', duration: 3.8 },
         { speaker: '美咲', text: '「そうだ、片付けの最後に【別館2Fの音楽室】のピアノの上に置いたんだ！ 東棟2Fの渡り廊下から急ごう！」', duration: 5.5 }
       ]);
     } else {
       showDialogue('美咲', '「ポーチはここにはない。東棟2Fの渡り廊下を通って、別館2Fの音楽室へ行こう」', 4.5);
     }
-  } else if (item.type === 'pouch') {
+    return;
+  }
+
+  // --- 音楽室の忘れ物ポーチ ---
+  if (item.type === 'pouch') {
     item.collected = true;
     item.mesh.visible = false;
     item.light.visible = false;
-    story.hasPouch = true;
+    story.items.pouch = true;
+    updateInventoryHUD();
+    updateObjectiveText();
     audio.playPickup();
+
+    if (story.ghostReleased) {
+      showDialogue('美咲', '「よかった、家の鍵と楽譜のポーチ！ これでやっと帰れるね……」', 4.5);
+      return;
+    }
+
     audio.playChaseStinger();
     triggerFlash('rgba(180, 10, 20, 0.35)', 240);
-    objectiveLabel.textContent = '目標: 赤いコートの女から逃げて1Fの出口から脱出する！';
     queueDialogues([
       { speaker: '美咲', text: '「あった！ 家の鍵と楽譜のポーチ！ ……っ、外からメトロノームの音が近づいてくる！」', duration: 4.2 },
-      { speaker: '赤いコートの女', text: '「……ミツケタ……ワスレモノ、モッテイカナイデ……」', duration: 4.2, isGhost: true }
+      { speaker: '赤いコートの女', text: '「……ミツケタ……ワスレモノ、モッテイカナイデ……」', duration: 4.0, isGhost: true },
+      { speaker: '美咲', text: '「このまま1Fの出口へ逃げるか……それとも、校舎の手がかりを集めてあの子を助けてあげるか……！」', duration: 5.0 }
     ]);
 
     if (!story.enemyTriggered) {
@@ -643,30 +785,208 @@ function tryInteract() {
       enemy.position.set(27, 4, 0);
       enemy.group.position.copy(enemy.position);
     }
-  } else if (item.type === 'note') {
+    return;
+  }
+
+  // --- トゥルーエンド用キーアイテム（カセット・鍵・折れたリードと楽譜） ---
+  if (item.type === 'key_item') {
+    item.collected = true;
+    item.mesh.visible = false;
+    item.light.visible = false;
+    story.items[item.itemKey] = true;
+    updateInventoryHUD();
+    updateObjectiveText();
+    audio.playPickup();
+
+    if (item.itemKey === 'tape') {
+      queueDialogues([
+        { speaker: '調査', text: '【古いカセットテープ】を手に入れた。ラベルに「平成10年・吹奏楽部」と書かれている。', duration: 4.2 },
+        { speaker: '美咲', text: '「2Fの放送室にあるカセットデッキなら再生できるかも……！」', duration: 4.2 }
+      ]);
+    } else if (item.itemKey === 'key') {
+      queueDialogues([
+        { speaker: '調査', text: '【古びた楽器庫の鍵】を手に入れた。タグに「音楽準備室・大型収納庫」と記されている。', duration: 4.5 },
+        {
+          speaker: '美咲',
+          text: story.items.score
+            ? '「鍵も楽譜も揃った！ 別館2Fの音楽準備室にある封鎖された楽器収納庫を開けに行こう！」'
+            : '「これで音楽準備室の楽器庫が開くはず……あとは別館1Fの旧倉庫に、彼女の忘れ物（楽譜）が残っているかも」',
+          duration: 5.2
+        }
+      ]);
+    } else if (item.itemKey === 'score') {
+      queueDialogues([
+        { speaker: '調査', text: '【シオリの折れたリードと楽譜】を手に入れた。赤いリボンが結ばれている。', duration: 4.5 },
+        {
+          speaker: '美咲',
+          text: story.items.key
+            ? '「鍵も楽譜も揃った！ 別館2Fの音楽準備室にある封鎖された楽器収納庫へ届けよう！」'
+            : '「ずっと探していた本当の忘れ物は、これだったんだ……あとは3Fの理科準備室で楽器庫の鍵を見つけないと！」',
+          duration: 5.2
+        }
+      ]);
+    }
+    return;
+  }
+
+  // --- 2F 放送室のカセットデッキ ---
+  if (item.type === 'broadcast_deck') {
+    if (!story.items.tape) {
+      showDialogue('美咲', '「古いカセットデッキがある。何か録音されたテープが【3Fの視聴覚室】とかに残っていないかな……」', 5.0);
+      return;
+    }
+    story.tapePlayed = true;
+    story.notesFound.add('broadcast_tape');
+    audio.playTapePlayback();
+    queueDialogues([
+      { speaker: 'カセット音声', text: '（ザーッ……ドン、ドン、ドン！ 内側から木箱を叩く音……）', duration: 3.2, isGhost: true },
+      { speaker: 'シオリの声', text: '「……あけて……暗いよ、狭いよ……誰か気づいて……！」', duration: 4.0, isGhost: true },
+      { speaker: 'カセット音声', text: '「……楽器庫の鍵は【3Fの理科準備室】に隠したよ。あいつの楽譜も【別館1Fの旧倉庫】に放り込んどいた……」', duration: 5.5, isGhost: true },
+      { speaker: '美咲', text: '「そんな……！【3F 理科準備室】の鍵と、【別館1F 旧倉庫】の楽譜を見つけて、音楽準備室の楽器庫を開けてあげないと！」', duration: 5.8 }
+    ]);
+    return;
+  }
+
+  // --- 別館2F 音楽準備室：封鎖された古い楽器収納庫（TRUE解放 or 罠BAD END①） ---
+  if (item.type === 'sealed_locker') {
+    if (story.ghostReleased) {
+      showDialogue('美咲', '「もう中は空っぽだ……温かい月明かりが差している。さあ、1Fの出口から帰ろう」', 4.5);
+      return;
+    }
+
+    if (story.items.key && story.items.score) {
+      // ★ TRUE END クライマックス：封印を解き、赤いコートの女（シオリ）を解放！
+      story.ghostReleased = true;
+      enemy.deactivate();
+      dangerVignette.style.opacity = '0';
+      audio.playTrueRelease();
+      triggerFlash('rgba(255, 248, 220, 0.85)', 700);
+
+      // 校舎の異界霧が晴れ、穏やかな夜の空気へ
+      scene.fog.density = 0.036;
+      scene.fog.color.setHex(0x0b1220);
+      ambient.intensity = 1.15;
+      if (item.releaseLight) item.releaseLight.intensity = 2.6;
+
+      updateObjectiveText();
+      queueDialogues([
+        { speaker: '美咲', text: '「鍵を開けて、打ち付けられた板を外した……！ ほら、探していた楽譜とリードだよ、シオリさん！」', duration: 4.8 },
+        { speaker: 'シオリ', text: '「……やっと、開けてくれた……もう、暗くない……ありがとう……」', duration: 4.8 },
+        { speaker: '美咲', text: '「……空気が軽くなった。もう追いかけられる気配もしない……1Fの出口から、由香の待つ校門へ帰ろう！」', duration: 5.5 }
+      ]);
+      return;
+    }
+
+    // 準備不足で調べた場合（1回目：警告＆ヒント、2回目：無理やり開けて罠BAD END①！）
+    story.sealedWarnCount++;
+    if (story.sealedWarnCount === 1) {
+      audio.playThudScare();
+      queueDialogues([
+        { speaker: '調査', text: '古い大型楽器用の収納庫だ。木の板がバッテンに打ち付けられ、中からメトロノームの音が響いている……', duration: 4.8 },
+        { speaker: '美咲', text: '「鍵と彼女の遺品（楽譜）が揃っていないのに無理やり開けたら危ない気がする……（※もう一度調べると無理やり開けます）」', duration: 5.5 }
+      ]);
+    } else {
+      // 罠 BAD END①『新しい忘れ物』
+      audio.playJumpscare();
+      triggerFlash('rgba(195, 0, 15, 0.8)', 450);
+      showBadEnding(
+        'bad1',
+        'BAD END ① — 新しい忘れ物（罠）',
+        '閉じ込められた……',
+        '鍵も遺品も持たないまま収納庫の板をこじ開けた瞬間、暗闇から伸びた長い腕に中へ引きずり込まれた。\n' +
+        'バタンと外から鍵がかかる音と、遠ざかっていくメトロノームの音……。\n' +
+        '翌朝、誰もいない教室の机には、美咲のポーチだけがぽつんと残されていた――。'
+      );
+    }
+    return;
+  }
+
+  // --- メモ調査 ---
+  if (item.type === 'note') {
     story.notesFound.add(item.id);
     audio.playPickup();
     showDialogue('調査', item.text, 7.0);
-  } else if (item.type === 'exit') {
-    if (!story.hasPouch) {
-      showDialogue('美咲', '「まだ忘れ物（家の鍵と楽譜のポーチ）を取っていない……今夜中に取り戻さないと家に入れないよ」', 4.5);
+    return;
+  }
+
+  // --- 脱出出口（BAD② / NORMAL / TRUE の3分岐！） ---
+  if (item.type === 'exit') {
+    if (!story.items.pouch) {
+      if (item.id === 'exit_main') {
+        story.giveUpCount++;
+        if (story.giveUpCount === 1) {
+          showDialogue('美咲', '「まだ忘れ物（家の鍵と楽譜のポーチ）を取っていない……でも怖くなってきた。（※もう一度調べると、諦めてそのまま帰ります）」', 5.5);
+          return;
+        }
+        // 隠し BAD END②『明日でいいか』
+        audio.playBoneCrack();
+        triggerFlash('rgba(160, 0, 15, 0.65)', 350);
+        showBadEnding(
+          'bad2',
+          'BAD END ② — 明日でいいか（隠しエンド）',
+          '家の前で待っていたもの',
+          '怖さに耐えきれず、忘れ物を諦めてそのまま暗い夜道を家まで走って帰った。\n' +
+          '玄関の前で立ち尽くす――そうだ、家の鍵はあのポーチの中だった。\n' +
+          'そのとき背後から、ボキボキと関節の鳴る音と「……ワスレモノ、トドケニキタヨ……」の声。\n' +
+          '振り向いた暗闇の先に、赤い帽子がゆっくりと傾いた――。'
+        );
+        return;
+      }
+      showDialogue('美咲', '「まだ忘れ物（家の鍵と楽譜のポーチ）を取っていない……2年A組か、別館2Fの音楽室を探そう」', 4.5);
       return;
     }
+
+    // 忘れ物ポーチを持っている状態で脱出！
     gameState = 'clear';
     document.exitPointerLock();
     enemy.deactivate();
-    const foundCount = story.notesFound.size;
-    clearText.textContent =
-      `夜の校舎から飛び出すと、校門の前で心配して引き返してきてくれた友達が「遅いから迎えに来ちゃったよ！大丈夫！？」と駆け寄ってくれた。\n\n` +
-      `（手がかり発見数: ${foundCount} / 3）\n` +
-      `ホッとして振り返った暗い別館2Fの音楽室の窓に、赤い帽子を被ったいびつな人影がじっとこちらを見下ろしている気がした……`;
+    clearCard.classList.remove('true-end');
+
+    if (story.ghostReleased) {
+      // ★ TRUE END『もう、忘れない』
+      unlockEnding('true');
+      clearCard.classList.add('true-end');
+      clearEyebrow.textContent = 'TRUE END — もう、忘れない';
+      clearTitle.textContent = '静かな夜道へ';
+      clearText.textContent =
+        '校門へ飛び出すと、虫の声と澄んだ夜気が迎えてくれた。\n' +
+        '「美咲っ！ 遅いから心配して戻ってきちゃったよ！ 大丈夫だった！？」\n' +
+        '駆け寄ってきた由香の温かい声に、張り詰めていた緊張が一気にほどける。\n\n' +
+        'ふと振り返った別館2F・音楽室の窓にはもう誰もおらず、ただ穏やかな月明かりだけが差し込んでいた。\n' +
+        '「……うん、もう大丈夫。忘れ物もちゃんと見つけたから。帰ろう、由香」\n' +
+        '二人は街灯の並ぶ帰り道を、並んで歩いていった――。';
+    } else {
+      // ★ NORMAL END『逃げ切った夜』
+      unlockEnding('normal');
+      clearEyebrow.textContent = 'NORMAL END — 逃げ切った夜';
+      clearTitle.textContent = '生 還';
+      clearText.textContent =
+        '夜の校舎から命からがら飛び出すと、校門の前で心配して引き返してきてくれた由香が駆け寄ってくれた。\n' +
+        '「美咲、すごい顔色してるよ！？ 大丈夫！？」\n\n' +
+        'ホッとして二人で歩き出し、ふと校舎を振り返る――。\n' +
+        '暗い別館2F・音楽室の窓に、赤い帽子を被ったいびつな人影がべったり張り付いてこちらを見下ろしていた。\n\n' +
+        '（ヒント：3F 視聴覚室・理科準備室・2F 放送室・別館1F 旧倉庫の手がかりを集めて、音楽準備室の楽器収納庫を開放すると TRUE END へ進めます）';
+    }
     clearScreen.classList.remove('hidden');
   }
 }
 
-function triggerJumpscare(customMsg = null) {
+function showBadEnding(id, eyebrow, title, body) {
+  if (player.hiding) exitLocker(true);
+  gameState = 'gameover';
+  document.exitPointerLock();
+  enemy.deactivate();
+  unlockEnding(id);
+  gameoverEyebrow.textContent = eyebrow;
+  gameoverTitle.textContent = title;
+  gameoverText.textContent = body;
+  gameoverScreen.classList.remove('hidden');
+}
+
+function triggerJumpscare(customMsg = null, reason = 'catch') {
   if (player.hiding) exitLocker(true);
   gameState = 'jumpscare';
+  pendingBadEnding = reason;
   jumpscareTimer = 1.25;
   audio.playJumpscare();
   triggerFlash('rgba(210, 0, 15, 0.72)', 380);
@@ -677,7 +997,7 @@ function triggerJumpscare(customMsg = null) {
 }
 
 // =========================================================================
-// 校舎見取り図（2Dマップモーダル描画・ロッカー位置表示つき！）
+// 校舎見取り図（2Dマップモーダル描画・ロッカー＆未回収重要アイテム表示つき！）
 // =========================================================================
 function drawSchoolMap2D() {
   const ctx = mapCanvas.getContext('2d');
@@ -711,9 +1031,9 @@ function drawSchoolMap2D() {
   };
 
   ctx.fillStyle = '#e5dfcc';
-  ctx.font = 'bold 15px "Yu Gothic", sans-serif';
+  ctx.font = 'bold 14px "Yu Gothic", sans-serif';
   ctx.textAlign = 'left';
-  ctx.fillText(`校舎見取り図 【現在: ${floorNum}F】  ■緑=隠れロッカー  (Mキーで閉じる)`, 20, 22);
+  ctx.fillText(`校舎見取り図 【現在: ${floorNum}F】  ■緑=隠れロッカー  ★金=重要アイテム  (Mで閉じる)`, 18, 22);
 
   drawRect(-22, -10, 22, -6, '#363a35', '北棟廊下');
   drawRect(-14, -6, -10, 16, '#363a35');
@@ -734,9 +1054,9 @@ function drawSchoolMap2D() {
     drawRect(32, -10, 38, -2, '#4a4332', '別館階段');
     drawRect(32, -2, 36, 10, '#363a35');
     drawRect(36, -2, 46, 4, '#2e2a25', '美術室');
-    drawRect(36, 4, 46, 10, '#2e2a25', '旧倉庫');
+    drawRect(36, 4, 46, 10, '#3a2c22', '旧倉庫');
   } else if (floorNum === 2) {
-    drawRect(-14, -18, -6, -10, '#2a2e2b', '放送室');
+    drawRect(-14, -18, -6, -10, '#2c3540', '放送室');
     drawRect(-6, -18, 4, -10, '#3e3326', '2年A組');
     drawRect(4, -18, 14, -10, '#2a2e2b', '2年B組');
     drawRect(-22, -6, -14, 16, '#2a2e2b', '図書室');
@@ -748,15 +1068,15 @@ function drawSchoolMap2D() {
     drawRect(36, 4, 46, 10, '#3a2224', '音楽準備室');
   } else {
     drawRect(-14, -18, -6, -10, '#2a2e2b', 'トイレ');
-    drawRect(-6, -18, 4, -10, '#2a2e2b', '視聴覚室');
+    drawRect(-6, -18, 4, -10, '#2f3542', '視聴覚室');
     drawRect(4, -18, 14, -10, '#2a2e2b', '理科室');
     drawRect(-22, -6, -14, 5, '#2a2e2b', '空き教室');
     drawRect(-22, 5, -14, 16, '#2a2e2b', '3年B組');
-    drawRect(14, -6, 22, 5, '#2a2e2b', '理科準備室');
+    drawRect(14, -6, 22, 5, '#3b3324', '理科準備室');
     drawRect(14, 5, 22, 16, '#2a2e2b', '3年A組');
   }
 
-  // 現在階の隠れロッカー位置を緑の四角で表示
+  // 隠れロッカー（緑の四角）
   for (const l of schoolMap.lockers) {
     const lf = l.pos.y < 2 ? 1 : l.pos.y < 6 ? 2 : 3;
     if (lf !== floorNum) continue;
@@ -764,6 +1084,21 @@ function drawSchoolMap2D() {
     const lz = toCZ(l.pos.z);
     ctx.fillStyle = '#4de88c';
     ctx.fillRect(lx - 4, lz - 4, 8, 8);
+  }
+
+  // 未回収の重要アイテム（金色の星★）
+  for (const it of schoolMap.interactables) {
+    if (it.collected) continue;
+    if (it.type !== 'pouch' && it.type !== 'key_item') continue;
+    const itf = it.position.y < 2 ? 1 : it.position.y < 6 ? 2 : 3;
+    if (itf !== floorNum) continue;
+    const ix = toCX(it.position.x);
+    const iz = toCZ(it.position.z);
+    ctx.fillStyle = '#ffd65c';
+    ctx.font = 'bold 14px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('★', ix, iz);
   }
 
   // プレイヤー位置＆向き
@@ -792,7 +1127,6 @@ function animate(now) {
   const dt = Math.min(0.05, (now - lastTime) / 1000);
   lastTime = now;
 
-  // 引き戸スライドアニメーション
   for (const d of schoolMap.doors) {
     const target = d.isOpen ? 1 : 0;
     d.progress += (target - d.progress) * Math.min(1, dt * 10);
@@ -820,7 +1154,6 @@ function animate(now) {
       promptEl.classList.remove('visible');
     }
 
-    // 見回り中の警備員＆顧問の先生
     npcs.update(dt, player.pos, {
       onGuardScare: () => {
         audio.playFakeScare();
@@ -840,7 +1173,6 @@ function animate(now) {
       }
     });
 
-    // 赤いコートと赤い帽子の女 AI更新
     const enemyDist = enemy.update(dt, player.pos, pState, schoolMap.colliders, {
       onSpot: () => {
         audio.playChaseStinger();
@@ -855,14 +1187,13 @@ function animate(now) {
       },
       onLockerBreach: () => {
         audio.playLockerToggle(false);
-        triggerJumpscare('「……ソコニ、イルノ、ミテタヨ……！」');
+        triggerJumpscare('「……ソコニ、イルノ、ミテタヨ……！」', 'breach');
       },
       onCatch: () => {
-        triggerJumpscare('「……ツカマエタ……！」');
+        triggerJumpscare('「……ツカマエタ……！」', 'catch');
       }
     });
 
-    // ロッカー隠れ中に敵がすぐ近くにいるときの心拍音！
     if (player.hiding && enemy.active && enemyDist < 11) {
       const intensity = Math.max(0.25, Math.min(1, 1 - enemyDist / 11));
       player.heartbeatTimer -= dt;
@@ -880,7 +1211,6 @@ function animate(now) {
       dangerVignette.style.opacity = '0';
     }
 
-    // セリフキュー進行
     if (subtitleTimer > 0) {
       subtitleTimer -= dt;
       if (subtitleTimer <= 0) {
@@ -909,8 +1239,10 @@ function animate(now) {
     flashlightTarget.position.copy(facePos);
 
     if (jumpscareTimer <= 0) {
-      gameState = 'gameover';
-      gameoverScreen.classList.remove('hidden');
+      const desc = pendingBadEnding === 'breach'
+        ? '目の前で見られながらロッカーに隠れてしまった。扉を力ずくでこじ開けられ、暗闇の奥へ引きずり込まれた。\n翌朝、誰もいない教室には美咲のポーチだけがぽつんと残されていた――。'
+        : '赤いコートと赤い帽子の女に追いつかれてしまった。\n翌朝、誰もいない教室には美咲のポーチだけがぽつんと残されていた――。';
+      showBadEnding('bad1', 'BAD END ① — 新しい忘れ物', '捕まった……', desc);
     }
   }
 

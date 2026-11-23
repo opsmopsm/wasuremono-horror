@@ -59,6 +59,16 @@
       <div class="bar-label">スタミナ [Shiftで走る]</div>
       <div id="stamina-bar"><div id="stamina-fill"></div></div>
     </div>
+
+    <div id="inventory-hud">
+      <div class="inv-title">所持品</div>
+      <div class="inv-slots">
+        <div id="inv-pouch" class="inv-slot">忘れ物ポーチ</div>
+        <div id="inv-tape" class="inv-slot">古いカセット</div>
+        <div id="inv-key" class="inv-slot">楽器庫の鍵</div>
+        <div id="inv-score" class="inv-slot">折れたリードと楽譜</div>
+      </div>
+    </div>
   </div>
 
   <!-- 校舎見取り図モーダル -->
@@ -69,7 +79,7 @@
   <!-- タイトル画面 -->
   <div id="title-screen" class="overlay-screen">
     <div class="title-card">
-      <p class="eyebrow">PS1 STYLE SHORT HORROR PROTOTYPE</p>
+      <p class="eyebrow">PS1 STYLE SHORT HORROR — COMPLETE EDITION</p>
       <h1>忘 れ 物</h1>
       <p class="story-lead">
         吹奏楽部の片付けで遅くなった帰り道。<br />
@@ -82,6 +92,7 @@
         <div><strong>E</strong>：ドア開閉・ロッカーに隠れる・話す・調べる・取る</div>
         <div><strong>F</strong>：懐中電灯 ON/OFF　／　<strong>M</strong>：校舎見取り図　／　<strong>P</strong>：PS1画質切替</div>
       </div>
+      <div id="title-endings" class="ending-tracker"></div>
       <button id="start-btn" class="retro-btn">校舎に入る</button>
     </div>
   </div>
@@ -95,24 +106,27 @@
     </div>
   </div>
 
-  <!-- ゲームオーバー画面 -->
+  <!-- ゲームオーバー画面（BAD END ① / ② 共通対応） -->
   <div id="gameover-screen" class="overlay-screen hidden">
     <div class="title-card danger">
-      <h2>捕まった……</h2>
-      <p class="story-lead">
+      <p id="gameover-eyebrow" class="eyebrow">BAD END ① — 新しい忘れ物</p>
+      <h2 id="gameover-title">捕まった……</h2>
+      <p id="gameover-text" class="story-lead">
         赤いコートと赤い帽子の女に追いつかれてしまった。<br />
         翌朝、誰もいない教室にはポーチだけがぽつんと残されていた――。
       </p>
+      <div id="gameover-endings" class="ending-tracker"></div>
       <button id="retry-btn" class="retro-btn">やり直す</button>
     </div>
   </div>
 
-  <!-- 脱出クリア画面 -->
+  <!-- 脱出クリア画面（NORMAL / TRUE END 共通対応） -->
   <div id="clear-screen" class="overlay-screen hidden">
-    <div class="title-card">
-      <p class="eyebrow">NORMAL END — 逃げ切った夜</p>
-      <h2>生 還</h2>
+    <div id="clear-card" class="title-card">
+      <p id="clear-eyebrow" class="eyebrow">NORMAL END — 逃げ切った夜</p>
+      <h2 id="clear-title">生 還</h2>
       <p id="clear-text" class="story-lead"></p>
+      <div id="clear-endings" class="ending-tracker"></div>
       <button id="play-again-btn" class="retro-btn">もう一度遊ぶ</button>
     </div>
   </div>

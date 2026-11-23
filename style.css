@@ -298,6 +298,94 @@ html, body {
   background: linear-gradient(90deg, #912028, #d6cfc0);
 }
 
+/* 右下 所持品インベントリHUD */
+#inventory-hud {
+  position: absolute;
+  bottom: 18px;
+  right: 18px;
+  background: rgba(8, 10, 14, 0.72);
+  border: 1px solid rgba(150, 145, 132, 0.35);
+  padding: 8px 12px;
+  min-width: 210px;
+}
+
+.inv-title {
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  color: #b7b1a2;
+  margin-bottom: 6px;
+}
+
+.inv-slots {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 5px;
+}
+
+.inv-slot {
+  font-size: 11px;
+  padding: 4px 7px;
+  border: 1px solid #35373b;
+  background: rgba(18, 20, 24, 0.75);
+  color: #5e6166;
+  text-align: center;
+  transition: all 0.2s ease;
+}
+
+.inv-slot.owned {
+  border-color: #c89d54;
+  background: rgba(74, 52, 22, 0.65);
+  color: #f8ecd0;
+  font-weight: bold;
+  box-shadow: 0 0 8px rgba(212, 165, 74, 0.35);
+}
+
+/* エンディング図鑑バッジ */
+.ending-tracker {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  margin-bottom: 20px;
+  font-family: "Yu Gothic", sans-serif;
+  font-size: 11px;
+}
+
+.end-badge {
+  padding: 4px 9px;
+  border: 1px solid #3c3a37;
+  background: rgba(20, 20, 24, 0.75);
+  color: #6b6862;
+}
+
+.end-badge.unlocked-bad {
+  border-color: #a1232e;
+  background: rgba(92, 14, 22, 0.6);
+  color: #f4ccd0;
+}
+
+.end-badge.unlocked-normal {
+  border-color: #4f789c;
+  background: rgba(24, 48, 72, 0.6);
+  color: #d4e8f8;
+}
+
+.end-badge.unlocked-true {
+  border-color: #d4b052;
+  background: rgba(88, 68, 22, 0.65);
+  color: #fff3cc;
+  font-weight: bold;
+}
+
+.title-card.true-end {
+  border-color: #d4b052;
+  box-shadow: 0 0 60px rgba(212, 176, 82, 0.28);
+}
+
+.title-card.true-end .eyebrow {
+  color: #e6c66a;
+}
+
 /* 見取り図モーダル */
 #map-modal {
   position: fixed;

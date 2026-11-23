@@ -765,11 +765,10 @@ export function buildSchoolMap(scene, textures) {
   addBox(-13.2, -7.5, 4, 4.95, -16.8, -15.4, mats.metalDark, true);
   interactables.push({
     id: 'broadcast_deck',
-    type: 'note',
-    label: 'カセットデッキを調べる [E]',
+    type: 'broadcast_deck',
+    label: '放送室のカセットデッキを調べる [E]',
     position: new THREE.Vector3(-10.5, 5.0, -15.2),
-    radius: 2.3,
-    text: '古いカセットテープが挿さっている…再生すると、狭い箱を内側から叩く音と「あけて…」というかすかな声が途切れ途切れに流れた。'
+    radius: 2.4
   });
 
   // --- 2F 図書室：本棚迷路（ステルスエリア！） ---
@@ -781,7 +780,30 @@ export function buildSchoolMap(scene, textures) {
     }
   }
 
-  // --- 3F 理科室・視聴覚室・3年A/B組 ---
+  // --- 3F 視聴覚室：机＆【古いカセットテープ】 ---
+  addBox(-2.8, 0.8, 8, 8.82, -15.2, -13.6, mats.woodMid, true);
+  const tapeMesh = new THREE.Mesh(
+    new THREE.BoxGeometry(0.28, 0.06, 0.18),
+    new THREE.MeshLambertMaterial({ color: 0x2a323b, emissive: 0x162436 })
+  );
+  tapeMesh.position.set(-1.0, 8.88, -14.3);
+  mapGroup.add(tapeMesh);
+  const tapeLight = new THREE.PointLight(0x74b9ff, 0.65, 3.6);
+  tapeLight.position.set(-1.0, 9.2, -14.3);
+  mapGroup.add(tapeLight);
+  interactables.push({
+    id: 'item_tape',
+    type: 'key_item',
+    itemKey: 'tape',
+    label: '古いカセットテープを取る [E]',
+    position: tapeMesh.position.clone(),
+    mesh: tapeMesh,
+    light: tapeLight,
+    radius: 2.4,
+    collected: false
+  });
+
+  // --- 3F 理科室・理科準備室・3年A/B組 ---
   populateClassroom(4, 14, 8, -18, -10, true);
   populateClassroom(14, 22, 8, 5, 16, true);
   populateClassroom(-22, -14, 8, 5, 16, true);
@@ -799,6 +821,29 @@ export function buildSchoolMap(scene, textures) {
   dummyGroup.position.set(12.5, 8, -16.5);
   mapGroup.add(dummyGroup);
 
+  // 3F 理科準備室：薬品棚＆【古びた楽器庫の鍵】
+  addBox(18.5, 20.8, 8, 8.88, -3.5, -1.6, mats.woodDark, true);
+  const keyMesh = new THREE.Mesh(
+    new THREE.BoxGeometry(0.24, 0.05, 0.11),
+    new THREE.MeshLambertMaterial({ color: 0xd4af37, emissive: 0x4f3b08 })
+  );
+  keyMesh.position.set(19.6, 8.94, -2.5);
+  mapGroup.add(keyMesh);
+  const keyLight = new THREE.PointLight(0xffd36b, 0.72, 3.6);
+  keyLight.position.set(19.6, 9.25, -2.5);
+  mapGroup.add(keyLight);
+  interactables.push({
+    id: 'item_key',
+    type: 'key_item',
+    itemKey: 'key',
+    label: '古びた楽器庫の鍵を取る [E]',
+    position: keyMesh.position.clone(),
+    mesh: keyMesh,
+    light: keyLight,
+    radius: 2.5,
+    collected: false
+  });
+
   // --- 別館 1F 美術室：白い石膏像たち ---
   [[39, 0], [42.5, 0.5], [44, 2.5], [39.5, 2.6]].forEach(([sx, sz]) => {
     addBox(sx - 0.35, sx + 0.35, 0, 1.0, sz - 0.35, sz + 0.35, mats.woodMid, true);
@@ -808,6 +853,30 @@ export function buildSchoolMap(scene, textures) {
     const head = new THREE.Mesh(new THREE.SphereGeometry(0.17, 6, 6), mats.plaster);
     head.position.set(sx, 1.66, sz);
     mapGroup.add(head);
+  });
+
+  // --- 別館 1F 旧倉庫：木箱＆【シオリの折れたリードと楽譜】 ---
+  addBox(41.2, 43.6, 0, 0.92, 6.2, 8.2, mats.woodDark, true);
+  addBox(38.2, 40.0, 0, 1.4, 7.6, 9.2, mats.woodMid, true);
+  const scoreMesh = new THREE.Mesh(
+    new THREE.BoxGeometry(0.36, 0.06, 0.28),
+    new THREE.MeshLambertMaterial({ color: 0xe6dec8, emissive: 0x3b1218 })
+  );
+  scoreMesh.position.set(42.2, 0.97, 7.1);
+  mapGroup.add(scoreMesh);
+  const scoreLight = new THREE.PointLight(0xff7f94, 0.7, 3.8);
+  scoreLight.position.set(42.2, 1.3, 7.1);
+  mapGroup.add(scoreLight);
+  interactables.push({
+    id: 'item_score',
+    type: 'key_item',
+    itemKey: 'score',
+    label: 'シオリの折れたリードと楽譜を取る [E]',
+    position: scoreMesh.position.clone(),
+    mesh: scoreMesh,
+    light: scoreLight,
+    radius: 2.5,
+    collected: false
   });
 
   // --- 別館 2F 音楽室：五線譜黒板・グランドピアノ・譜面台・忘れ物（ポーチ）！ ---
@@ -854,16 +923,20 @@ export function buildSchoolMap(scene, textures) {
   sealedMesh.position.set(44.9, 4 + 1.18, 7.6);
   sealedMesh.rotation.y = -Math.PI / 2;
   mapGroup.add(sealedMesh);
+  const sealedReleaseLight = new THREE.PointLight(0xfff1cf, 0.0, 7.0);
+  sealedReleaseLight.position.set(43.8, 5.4, 7.6);
+  mapGroup.add(sealedReleaseLight);
   colliders.push({
     minX: 44.3, maxX: 45.6, minY: 4, maxY: 6.4, minZ: 6.8, maxZ: 8.4
   });
   interactables.push({
     id: 'sealed_locker',
-    type: 'note',
+    type: 'sealed_locker',
     label: '封鎖された楽器収納庫を調べる [E]',
     position: new THREE.Vector3(44.2, 5.2, 7.6),
-    radius: 2.4,
-    text: '古い大型楽器用の収納庫だ。木の板がバッテンに打ち付けられている……中から、かすかにメトロノームのような音が聞こえる気がする。'
+    mesh: sealedMesh,
+    releaseLight: sealedReleaseLight,
+    radius: 2.5
   });
 
   // --- 隠れられるスチールロッカー（隙間から外が見えるホラー定番ギミック） ---

@@ -284,6 +284,110 @@ export class HorrorAudio {
     osc2.stop(now + 2.5);
   }
 
+  // 放送室のカセットテープ再生（ザーッというノイズ＋箱を内側から叩く音）
+  playTapePlayback() {
+    if (!this.ctx) return;
+    const now = this.ctx.currentTime;
+    const dur = 2.2;
+    const bufSize = Math.floor(this.ctx.sampleRate * dur);
+    const buf = this.ctx.createBuffer(1, bufSize, this.ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < bufSize; i++) {
+      data[i] = (Math.random() * 2 - 1) * 0.25;
+    }
+    const src = this.ctx.createBufferSource();
+    src.buffer = buf;
+    const bp = this.ctx.createBiquadFilter();
+    bp.type = 'bandpass';
+    bp.frequency.value = 1400;
+    bp.Q.value = 1.8;
+    const g = this.ctx.createGain();
+    g.gain.setValueAtTime(0.01, now);
+    g.gain.linearRampToValueAtTime(0.24, now + 0.15);
+    g.gain.setValueAtTime(0.22, now + dur - 0.3);
+    g.gain.exponentialRampToValueAtTime(0.001, now + dur);
+    src.connect(bp);
+    bp.connect(g);
+    g.connect(this.master);
+    src.start(now);
+
+    // 内側から木箱を叩く「ドン、ドン、ドン！」音
+    [0.35, 0.72, 1.15, 1.48].forEach((offset) => {
+      const osc = this.ctx.createOscillator();
+      const kg = this.ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(118, now + offset);
+      osc.frequency.exponentialRampToValueAtTime(42, now + offset + 0.14);
+      kg.gain.setValueAtTime(0.38, now + offset);
+      kg.gain.exponentialRampToValueAtTime(0.001, now + offset + 0.16);
+      osc.connect(kg);
+      kg.connect(this.master);
+      osc.start(now + offset);
+      osc.stop(now + offset + 0.17);
+    });
+  }
+
+  // 理科室・美術室のフェイク物音（ガタンッ！）
+  playThudScare() {
+    if (!this.ctx) return;
+    const now = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const g = this.ctx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(150, now);
+    osc.frequency.exponentialRampToValueAtTime(34, now + 0.22);
+    g.gain.setValueAtTime(0.45, now);
+    g.gain.exponentialRampToValueAtTime(0.001, now + 0.26);
+    osc.connect(g);
+    g.connect(this.master);
+    osc.start(now);
+    osc.stop(now + 0.28);
+  }
+
+  // 封鎖された楽器収納庫を開放したときの音（鍵＋板が外れる＋切ないピアノ和音）
+  playTrueRelease() {
+    if (!this.ctx) return;
+    const now = this.ctx.currentTime;
+    // 金属錠前ガチャッ
+    this.playLockerToggle(false);
+
+    // 温かく切ないピアノのアルペジオ和音（Cmaj7 -> Fmaj7風）
+    const chord = [261.63, 329.63, 392.0, 493.88, 523.25, 659.25];
+    chord.forEach((freq, i) => {
+      const t = now + 0.28 + i * 0.14;
+      const osc = this.ctx.createOscillator();
+      const g = this.ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      g.gain.setValueAtTime(0.001, t);
+      g.gain.linearRampToValueAtTime(0.14, t + 0.04);
+      g.gain.exponentialRampToValueAtTime(0.0008, t + 3.2);
+      osc.connect(g);
+      g.connect(this.master);
+      osc.start(t);
+      osc.stop(t + 3.3);
+    });
+  }
+
+  // 関節ボキボキ＋不気味な低音（隠しバッドエンド用）
+  playBoneCrack() {
+    if (!this.ctx) return;
+    const now = this.ctx.currentTime;
+    [0, 0.12, 0.28].forEach((offset) => {
+      const osc = this.ctx.createOscillator();
+      const g = this.ctx.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(750 - offset * 900, now + offset);
+      osc.frequency.exponentialRampToValueAtTime(90, now + offset + 0.06);
+      g.gain.setValueAtTime(0.32, now + offset);
+      g.gain.exponentialRampToValueAtTime(0.001, now + offset + 0.07);
+      osc.connect(g);
+      g.connect(this.master);
+      osc.start(now + offset);
+      osc.stop(now + offset + 0.08);
+    });
+  }
+
   // メトロノーム接近音（＋近いと不気味な低音鼓動）
   playMetronomeTick(intensity) {
     if (!this.ctx) return;
