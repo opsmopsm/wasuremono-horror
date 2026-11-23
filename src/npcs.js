@@ -2,78 +2,85 @@ import * as THREE from 'three';
 
 function buildHumanNPC(uniformColor, hatColor = null, hasFlashlight = false) {
   const g = new THREE.Group();
-  const bodyMat = new THREE.MeshLambertMaterial({ color: uniformColor });
-  const pantsMat = new THREE.MeshLambertMaterial({ color: 0x1e222b });
-  const skinMat = new THREE.MeshLambertMaterial({ color: 0xd8b496 });
-  const hairMat = new THREE.MeshLambertMaterial({ color: 0x22201e });
+  const bodyMat = new THREE.MeshStandardMaterial({ color: uniformColor, roughness: 0.78, metalness: 0.05 });
+  const pantsMat = new THREE.MeshStandardMaterial({ color: 0x1e222b, roughness: 0.85 });
+  const skinMat = new THREE.MeshStandardMaterial({ color: 0xdab698, roughness: 0.65 });
+  const hairMat = new THREE.MeshStandardMaterial({ color: 0x22201e, roughness: 0.88 });
 
   // 脚（ピボットを腰の高さにして歩行アニメーション可能に）
   const lLegPivot = new THREE.Group();
   lLegPivot.position.set(-0.12, 0.78, 0);
-  const lLeg = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.78, 0.18), pantsMat);
+  const lLeg = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.075, 0.78, 10), pantsMat);
   lLeg.position.y = -0.39;
   lLegPivot.add(lLeg);
   g.add(lLegPivot);
 
   const rLegPivot = new THREE.Group();
   rLegPivot.position.set(0.12, 0.78, 0);
-  const rLeg = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.78, 0.18), pantsMat);
+  const rLeg = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.075, 0.78, 10), pantsMat);
   rLeg.position.y = -0.39;
   rLegPivot.add(rLeg);
   g.add(rLegPivot);
 
   // 胴体
-  const torso = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.65, 0.28), bodyMat);
+  const torso = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.65, 0.26), bodyMat);
   torso.position.y = 1.1;
   g.add(torso);
 
   // 腕（肩ピボット）
   const lArmPivot = new THREE.Group();
-  lArmPivot.position.set(-0.32, 1.36, 0);
-  const lArm = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.56, 0.14), bodyMat);
+  lArmPivot.position.set(-0.31, 1.36, 0);
+  const lArm = new THREE.Mesh(new THREE.CylinderGeometry(0.065, 0.058, 0.56, 10), bodyMat);
   lArm.position.y = -0.26;
   lArmPivot.add(lArm);
   g.add(lArmPivot);
 
   const rArmPivot = new THREE.Group();
-  rArmPivot.position.set(0.32, 1.36, 0);
-  const rArm = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.56, 0.14), bodyMat);
+  rArmPivot.position.set(0.31, 1.36, 0);
+  const rArm = new THREE.Mesh(new THREE.CylinderGeometry(0.065, 0.058, 0.56, 10), bodyMat);
   rArm.position.y = -0.26;
   rArmPivot.add(rArm);
   if (hasFlashlight) {
     rArmPivot.rotation.x = -Math.PI / 2.6;
     const torch = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.04, 0.04, 0.22, 6),
-      new THREE.MeshLambertMaterial({ color: 0x333840 })
+      new THREE.CylinderGeometry(0.038, 0.038, 0.22, 10),
+      new THREE.MeshStandardMaterial({ color: 0x333840, roughness: 0.35, metalness: 0.75 })
     );
     torch.rotation.x = Math.PI / 2;
     torch.position.set(0, -0.54, 0.1);
     rArmPivot.add(torch);
 
-    const light = new THREE.PointLight(0xfff1c9, 1.4, 9.5, 1.7);
+    const light = new THREE.PointLight(0xfff1c9, 1.9, 10.5, 1.6);
     light.position.set(0, -0.55, 0.45);
     rArmPivot.add(light);
   }
   g.add(rArmPivot);
 
-  // 頭
-  const head = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.3, 0.26), skinMat);
+  // 頭（滑らかな球＋髪）
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.155, 14, 14), skinMat);
   head.position.y = 1.62;
   g.add(head);
-  const hair = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.12, 0.28), hairMat);
-  hair.position.set(0, 1.74, -0.02);
+  const hair = new THREE.Mesh(new THREE.SphereGeometry(0.162, 14, 10, 0, Math.PI * 2, 0, Math.PI * 0.55), hairMat);
+  hair.position.set(0, 1.64, -0.01);
   g.add(hair);
 
   // 警備員の制帽
   if (hatColor !== null) {
-    const hatMat = new THREE.MeshLambertMaterial({ color: hatColor });
-    const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.16, 0.12, 7), hatMat);
-    cap.position.set(0, 1.82, 0);
+    const hatMat = new THREE.MeshStandardMaterial({ color: hatColor, roughness: 0.7 });
+    const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.175, 0.16, 0.11, 14), hatMat);
+    cap.position.set(0, 1.80, 0);
     g.add(cap);
-    const visor = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.03, 0.14), new THREE.MeshLambertMaterial({ color: 0x111216 }));
-    visor.position.set(0, 1.77, 0.14);
+    const visor = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.025, 0.14), new THREE.MeshStandardMaterial({ color: 0x111216, roughness: 0.3, metalness: 0.2 }));
+    visor.position.set(0, 1.75, 0.14);
     g.add(visor);
   }
+
+  g.traverse((obj) => {
+    if (obj.isMesh) {
+      obj.castShadow = true;
+      obj.receiveShadow = true;
+    }
+  });
 
   return { group: g, lLegPivot, rLegPivot, lArmPivot, rArmPivot, hasFlashlight };
 }

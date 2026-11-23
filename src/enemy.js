@@ -90,37 +90,59 @@ export class RedCoatWoman {
     this.scene.add(this.group);
   }
 
-  // 赤いコートと赤い帽子を着た「形がいびつな女の人」PS1ローポリモデル
+  // 赤いコートと赤い帽子を着た「形がいびつな女の人」（高精細PBR＋シャドウ対応）
   buildModel(textures) {
     const root = new THREE.Group();
 
-    const coatMat = new THREE.MeshLambertMaterial({ map: textures.redCoat });
-    const hatMat = new THREE.MeshLambertMaterial({ color: 0x9b0d14 });
-    const hatRibbonMat = new THREE.MeshLambertMaterial({ color: 0x1c0507 });
-    const skinMat = new THREE.MeshLambertMaterial({ color: 0xc2bcb2 });
-    const faceMat = new THREE.MeshLambertMaterial({ map: textures.ghostFace });
-    const hairMat = new THREE.MeshLambertMaterial({ color: 0x0d0b0e });
-    const darkMat = new THREE.MeshLambertMaterial({ color: 0x141013 });
+    const coatMat = new THREE.MeshStandardMaterial({
+      map: textures.redCoat,
+      roughness: 0.78,
+      metalness: 0.04,
+      emissive: 0x260205,
+      emissiveIntensity: 0.4
+    });
+    const hatMat = new THREE.MeshStandardMaterial({
+      color: 0xa40d16,
+      roughness: 0.72,
+      metalness: 0.05,
+      emissive: 0x2a0205,
+      emissiveIntensity: 0.35
+    });
+    const hatRibbonMat = new THREE.MeshStandardMaterial({ color: 0x180406, roughness: 0.45, metalness: 0.1 });
+    const skinMat = new THREE.MeshStandardMaterial({ color: 0xcbc4ba, roughness: 0.68, metalness: 0.02 });
+    const faceMat = new THREE.MeshStandardMaterial({
+      map: textures.ghostFace,
+      roughness: 0.62,
+      metalness: 0.02,
+      emissive: 0x161314,
+      emissiveIntensity: 0.3
+    });
+    const hairMat = new THREE.MeshStandardMaterial({ color: 0x0b090d, roughness: 0.88 });
+    const darkMat = new THREE.MeshStandardMaterial({ color: 0x141013, roughness: 0.8 });
 
-    // 上半身・下半身をまとめる胴体ピボット（不自然に前傾＆ひねり）
+    // 上半身・下半身をまとめる胴体ピボット
     this.bodyPivot = new THREE.Group();
     this.bodyPivot.position.y = 0.0;
     root.add(this.bodyPivot);
 
-    // 細長い脚（赤いコートの裾からわずかに覗く）
-    this.leftLeg = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.78, 0.14), darkMat);
+    // 細長い脚
+    this.leftLeg = new THREE.Mesh(new THREE.CylinderGeometry(0.065, 0.055, 0.78, 10), darkMat);
     this.leftLeg.position.set(-0.14, 0.39, 0);
     this.bodyPivot.add(this.leftLeg);
 
-    this.rightLeg = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.78, 0.14), darkMat);
+    this.rightLeg = new THREE.Mesh(new THREE.CylinderGeometry(0.065, 0.055, 0.78, 10), darkMat);
     this.rightLeg.position.set(0.14, 0.39, 0);
     this.bodyPivot.add(this.rightLeg);
 
-    // 赤いロングコート（裾が広がった台形スカート部＋胴体部）
-    const coatSkirt = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.44, 1.08, 7), coatMat);
+    // 深紅のロングコート（滑らかなドレープスカート＋ウエストベルト）
+    const coatSkirt = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.46, 1.12, 16), coatMat);
     coatSkirt.position.set(0, 0.86, 0);
-    coatSkirt.rotation.z = 0.06; // わずかに歪む
+    coatSkirt.rotation.z = 0.05;
     this.bodyPivot.add(coatSkirt);
+
+    const belt = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.25, 0.07, 16), hatRibbonMat);
+    belt.position.set(0, 1.24, 0);
+    this.bodyPivot.add(belt);
 
     // 上半身（背骨がわずかに曲がって前傾）
     this.torso = new THREE.Group();
@@ -133,91 +155,94 @@ export class RedCoatWoman {
     chest.position.y = 0.12;
     this.torso.add(chest);
 
-    // 襟（赤いコートの立て襟）
-    const collar = new THREE.Mesh(new THREE.CylinderGeometry(0.19, 0.24, 0.16, 6), hatMat);
+    const collar = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.24, 0.16, 14), hatMat);
     collar.position.set(0, 0.42, 0);
     this.torso.add(collar);
 
     // --- 首＆頭＆赤い帽子（首が真横にグキッと折れ曲がっている！） ---
     this.headGroup = new THREE.Group();
     this.headGroup.position.set(0.03, 0.48, 0.04);
-    this.headGroup.rotation.z = 0.68; // 首が約39度折れ曲がったいびつな姿勢！
+    this.headGroup.rotation.z = 0.68;
     this.headGroup.rotation.x = -0.12;
     this.torso.add(this.headGroup);
 
-    // 細長い首
-    const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.08, 0.22, 5), skinMat);
+    const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.058, 0.078, 0.23, 12), skinMat);
     neck.position.y = 0.07;
     this.headGroup.add(neck);
 
-    // 頭（前面に歪んだ顔テクスチャ）
     const headMats = [skinMat, skinMat, skinMat, skinMat, faceMat, hairMat];
-    const head = new THREE.Mesh(new THREE.BoxGeometry(0.27, 0.33, 0.25), headMats);
+    const head = new THREE.Mesh(new THREE.BoxGeometry(0.27, 0.34, 0.25), headMats);
     head.position.set(0, 0.28, 0.02);
     this.headGroup.add(head);
 
-    // 黒く乱れた長い髪（左右と後ろに垂れる）
-    const backHair = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.58, 0.12), hairMat);
-    backHair.position.set(0, 0.16, -0.11);
+    // 黒く乱れた長い髪（多層で立体的に垂れる）
+    const backHair = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.62, 0.13), hairMat);
+    backHair.position.set(0, 0.14, -0.11);
     this.headGroup.add(backHair);
     [-0.14, 0.14].forEach((hx) => {
-      const sideHair = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.48, 0.16), hairMat);
-      sideHair.position.set(hx, 0.14, -0.02);
+      const sideHair = new THREE.Mesh(new THREE.BoxGeometry(0.075, 0.52, 0.17), hairMat);
+      sideHair.position.set(hx, 0.12, -0.02);
       this.headGroup.add(sideHair);
     });
 
-    // ★ 赤い帽子（ツバ広のクラシカルな赤い帽子・やや傾いて被っている）
+    // ★ 赤いツバ広帽子（滑らかな円形ブリム＆クラウン＆暗いリボン）
     const hatGroup = new THREE.Group();
     hatGroup.position.set(0, 0.45, 0.01);
     hatGroup.rotation.z = -0.14;
-    hatGroup.rotation.x = 0.16; // ツバが顔の上半分に影を落とす！
+    hatGroup.rotation.x = 0.16;
     this.headGroup.add(hatGroup);
 
-    const hatBrim = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.45, 0.045, 8), hatMat);
+    const hatBrim = new THREE.Mesh(new THREE.CylinderGeometry(0.43, 0.46, 0.04, 20), hatMat);
     hatGroup.add(hatBrim);
-    const hatCrown = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.23, 0.22, 7), hatMat);
+    const hatCrown = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.23, 0.23, 18), hatMat);
     hatCrown.position.y = 0.12;
     hatGroup.add(hatCrown);
-    const hatBand = new THREE.Mesh(new THREE.CylinderGeometry(0.235, 0.24, 0.05, 7), hatRibbonMat);
+    const hatBand = new THREE.Mesh(new THREE.CylinderGeometry(0.235, 0.24, 0.055, 18), hatRibbonMat);
     hatBand.position.y = 0.04;
     hatGroup.add(hatBand);
 
-    // --- 腕（いびつ：右腕が異常に長く、肘が逆関節ぎみに折れている！） ---
-    // 右腕（異常に長い）
+    // --- 腕（いびつ：右腕が異常に長く、肘が逆関節ぎみに折れている） ---
     this.rightArm = new THREE.Group();
     this.rightArm.position.set(0.28, 0.34, 0);
     this.torso.add(this.rightArm);
-    const rUpper = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.58, 0.13), coatMat);
+    const rUpper = new THREE.Mesh(new THREE.CylinderGeometry(0.062, 0.055, 0.58, 10), coatMat);
     rUpper.position.set(0.04, -0.26, 0.04);
     rUpper.rotation.z = 0.18;
     this.rightArm.add(rUpper);
-    const rFore = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.62, 0.11), coatMat);
+    const rFore = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.045, 0.62, 10), coatMat);
     rFore.position.set(0.06, -0.78, 0.18);
-    rFore.rotation.x = -0.45; // 肘が不自然に曲がって前に伸びる
+    rFore.rotation.x = -0.45;
     this.rightArm.add(rFore);
-    const rHand = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.22, 0.07), skinMat);
+    const rHand = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.23, 0.06), skinMat);
     rHand.position.set(0.06, -1.12, 0.31);
     this.rightArm.add(rHand);
 
-    // 左腕（肩が少し上がり、ひねられている）
     this.leftArm = new THREE.Group();
     this.leftArm.position.set(-0.27, 0.38, 0);
     this.torso.add(this.leftArm);
-    const lUpper = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.48, 0.13), coatMat);
+    const lUpper = new THREE.Mesh(new THREE.CylinderGeometry(0.062, 0.055, 0.48, 10), coatMat);
     lUpper.position.set(-0.04, -0.22, 0);
     lUpper.rotation.z = -0.22;
     this.leftArm.add(lUpper);
-    const lFore = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.46, 0.11), coatMat);
+    const lFore = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.045, 0.46, 10), coatMat);
     lFore.position.set(-0.02, -0.58, 0.12);
     lFore.rotation.x = -0.55;
     this.leftArm.add(lFore);
-    const lHand = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.18, 0.07), skinMat);
+    const lHand = new THREE.Mesh(new THREE.BoxGeometry(0.085, 0.19, 0.06), skinMat);
     lHand.position.set(-0.01, -0.84, 0.24);
     this.leftArm.add(lHand);
 
-    // 暗闇で赤いコートがうっすら浮かび上がる不気味な赤光
-    const aura = new THREE.PointLight(0xa00b18, 0.55, 6.2, 1.8);
-    aura.position.set(0, 1.5, 0.25);
+    // 懐中電灯が当たると廊下の壁に巨大な影を落とす！
+    root.traverse((obj) => {
+      if (obj.isMesh) {
+        obj.castShadow = true;
+        obj.receiveShadow = true;
+      }
+    });
+
+    // 暗闇で赤いコートが妖しく浮かび上がる赤オーラ光
+    const aura = new THREE.PointLight(0xb80c1c, 0.85, 7.2, 1.7);
+    aura.position.set(0, 1.5, 0.28);
     root.add(aura);
 
     return root;

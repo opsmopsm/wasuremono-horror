@@ -97,45 +97,70 @@ function renderEndingTrackers() {
 renderEndingTrackers();
 
 // =========================================================================
-// Three.js セットアップ（PS1風低解像度レンダラー）
+// Three.js セットアップ（高精細PBR＋ACESFilmicトーンマッピング＋ソフトシャドウ）
 // =========================================================================
 const renderer = new THREE.WebGLRenderer({
   canvas,
-  antialias: false,
+  antialias: true,
   powerPreference: 'high-performance'
 });
-renderer.setPixelRatio(1);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.18;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
-let ps1Mode = true;
+const scanlinesEl = document.getElementById('scanlines');
+let ps1Mode = false; // デフォルトを高精細リッチホラー画質に！（PキーでPS1レトロ切替可）
+
 function updateResolution() {
   const aspect = window.innerWidth / Math.max(1, window.innerHeight);
-  const targetH = ps1Mode ? 270 : Math.min(720, window.innerHeight);
-  const targetW = Math.round(targetH * aspect);
-  renderer.setSize(targetW, targetH, false);
-  if (qualityBadge) {
-    qualityBadge.textContent = ps1Mode ? '画質: PS1風 [P]' : '画質: クリア [P]';
+  camera.aspect = aspect;
+  camera.updateProjectionMatrix();
+
+  if (ps1Mode) {
+    renderer.setPixelRatio(1);
+    const targetH = 270;
+    const targetW = Math.round(targetH * aspect);
+    renderer.setSize(targetW, targetH, false);
+    canvas.classList.add('pixelated');
+    if (scanlinesEl) scanlinesEl.classList.remove('subtle');
+    if (qualityBadge) qualityBadge.textContent = '画質: PS1レトロ [P]';
+  } else {
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.setSize(window.innerWidth, window.innerHeight, false);
+    canvas.classList.remove('pixelated');
+    if (scanlinesEl) scanlinesEl.classList.add('subtle');
+    if (qualityBadge) qualityBadge.textContent = '画質: 高精細ホラー [P]';
   }
 }
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x050811);
+scene.fog = new THREE.FogExp2(0x050811, 0.068);
+
+const camera = new THREE.PerspectiveCamera(68, window.innerWidth / Math.max(1, window.innerHeight), 0.1, 85);
 window.addEventListener('resize', updateResolution);
 updateResolution();
 
-const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x04060b);
-scene.fog = new THREE.FogExp2(0x04060b, 0.082);
-
-const camera = new THREE.PerspectiveCamera(68, window.innerWidth / Math.max(1, window.innerHeight), 0.1, 70);
-
-const ambient = new THREE.AmbientLight(0x232c3d, 0.6);
+// 立体的な夜の環境光（青白い夜空からの光＋暗い床の照り返し）
+const ambient = new THREE.HemisphereLight(0x3a4f78, 0x181512, 0.48);
 scene.add(ambient);
 
-const flashlight = new THREE.SpotLight(0xfff4d6, 3.8, 28, Math.PI / 5.2, 0.45, 1.45);
+// 手持ちの懐中電灯（リアルタイム・ソフトシャドウ投射！）
+const flashlight = new THREE.SpotLight(0xfff1d2, 5.2, 32, Math.PI / 4.8, 0.62, 1.35);
+flashlight.castShadow = true;
+flashlight.shadow.mapSize.width = 1024;
+flashlight.shadow.mapSize.height = 1024;
+flashlight.shadow.camera.near = 0.25;
+flashlight.shadow.camera.far = 30;
+flashlight.shadow.bias = -0.0008;
 const flashlightTarget = new THREE.Object3D();
 scene.add(flashlight);
 scene.add(flashlightTarget);
 flashlight.target = flashlightTarget;
 
-const playerGlow = new THREE.PointLight(0x9fb0c8, 0.34, 4.2, 2.0);
+const playerGlow = new THREE.PointLight(0xaec2de, 0.42, 4.6, 1.8);
 scene.add(playerGlow);
 
 // =========================================================================
@@ -336,9 +361,9 @@ function resetGame() {
   story.notesFound.clear();
 
   // 夜の暗闇に戻す
-  scene.fog.density = 0.082;
-  scene.fog.color.setHex(0x04060b);
-  ambient.intensity = 0.6;
+  scene.fog.density = 0.068;
+  scene.fog.color.setHex(0x050811);
+  ambient.intensity = 0.48;
 
   for (const d of schoolMap.doors) {
     d.isOpen = false;

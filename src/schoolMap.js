@@ -3,25 +3,26 @@ import * as THREE from 'three';
 export const FLOOR_H = 4.0;
 const WALL_T = 0.28;
 
-// 部屋プレート用の看板テクスチャを生成
-function createSignTexture(text, bg = '#d6d2c4', fg = '#1e1c1a') {
+// 部屋プレート用の高精細看板テクスチャを生成
+function createSignTexture(text, bg = '#d9d4c5', fg = '#1e1c1a') {
   const c = document.createElement('canvas');
-  c.width = 128;
-  c.height = 40;
+  c.width = 256;
+  c.height = 80;
   const ctx = c.getContext('2d');
   ctx.fillStyle = bg;
-  ctx.fillRect(0, 0, 128, 40);
+  ctx.fillRect(0, 0, 256, 80);
   ctx.strokeStyle = '#38342e';
-  ctx.lineWidth = 4;
-  ctx.strokeRect(2, 2, 124, 36);
+  ctx.lineWidth = 6;
+  ctx.strokeRect(3, 3, 250, 74);
   ctx.fillStyle = fg;
-  ctx.font = 'bold 20px "Yu Gothic", "Meiryo", sans-serif';
+  ctx.font = 'bold 36px "Yu Gothic", "Meiryo", sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText(text, 64, 21);
+  ctx.fillText(text, 128, 42);
   const tex = new THREE.CanvasTexture(c);
-  tex.magFilter = THREE.NearestFilter;
-  tex.minFilter = THREE.NearestFilter;
+  tex.magFilter = THREE.LinearFilter;
+  tex.minFilter = THREE.LinearMipmapLinearFilter;
+  tex.anisotropy = 8;
   tex.colorSpace = THREE.SRGBColorSpace;
   return tex;
 }
@@ -37,43 +38,85 @@ export function buildSchoolMap(scene, textures) {
   const flickers = [];      // 明滅する蛍光灯
   const stairZones = [];    // 階段の高さ補間ゾーン
 
-  // 共通マテリアル（PS1風の粗い質感）
+  // 共通PBRマテリアル（リアルな質感・光沢・凹凸）
   const mats = {
-    wall: new THREE.MeshLambertMaterial({ map: textures.schoolWall }),
-    annexWall: new THREE.MeshLambertMaterial({ map: textures.annexWall }),
-    extWall: new THREE.MeshLambertMaterial({ map: textures.exteriorWall }),
-    corridorFloor: new THREE.MeshLambertMaterial({ map: textures.corridorFloor }),
-    woodFloor: new THREE.MeshLambertMaterial({ map: textures.woodFloor }),
-    ceiling: new THREE.MeshLambertMaterial({ map: textures.ceiling }),
-    stair: new THREE.MeshLambertMaterial({ map: textures.stair }),
-    door: new THREE.MeshLambertMaterial({ map: textures.door }),
-    windowGlass: new THREE.MeshLambertMaterial({
+    wall: new THREE.MeshStandardMaterial({
+      map: textures.schoolWall,
+      bumpMap: textures.plasterBump,
+      bumpScale: 0.028,
+      roughness: 0.88,
+      metalness: 0.02
+    }),
+    annexWall: new THREE.MeshStandardMaterial({
+      map: textures.annexWall,
+      bumpMap: textures.plasterBump,
+      bumpScale: 0.036,
+      roughness: 0.9,
+      metalness: 0.02
+    }),
+    extWall: new THREE.MeshStandardMaterial({
+      map: textures.exteriorWall,
+      bumpMap: textures.plasterBump,
+      bumpScale: 0.04,
+      roughness: 0.92
+    }),
+    corridorFloor: new THREE.MeshStandardMaterial({
+      map: textures.corridorFloor,
+      roughnessMap: textures.corridorRoughness,
+      roughness: 0.42,
+      metalness: 0.08
+    }),
+    woodFloor: new THREE.MeshStandardMaterial({
+      map: textures.woodFloor,
+      bumpMap: textures.woodFloor,
+      bumpScale: 0.018,
+      roughness: 0.54,
+      metalness: 0.04
+    }),
+    ceiling: new THREE.MeshStandardMaterial({
+      map: textures.ceiling,
+      roughness: 0.94,
+      metalness: 0.0
+    }),
+    stair: new THREE.MeshStandardMaterial({
+      map: textures.stair,
+      roughness: 0.72,
+      metalness: 0.08
+    }),
+    door: new THREE.MeshStandardMaterial({
+      map: textures.door,
+      roughness: 0.62,
+      metalness: 0.05
+    }),
+    windowGlass: new THREE.MeshStandardMaterial({
       map: textures.windowGlass,
+      roughness: 0.12,
+      metalness: 0.2,
       transparent: true,
-      opacity: 0.65,
+      opacity: 0.56,
       side: THREE.DoubleSide
     }),
-    woodDark: new THREE.MeshLambertMaterial({ color: 0x3b2a1c }),
-    woodMid: new THREE.MeshLambertMaterial({ color: 0x5c422c }),
-    metalDark: new THREE.MeshLambertMaterial({ color: 0x383e42 }),
-    locker: new THREE.MeshLambertMaterial({ color: 0x4b5551 }),
-    lockerDoor: new THREE.MeshLambertMaterial({ map: textures.lockerDoor }),
-    blackboard: new THREE.MeshLambertMaterial({ map: textures.blackboard }),
-    musicBlackboard: new THREE.MeshLambertMaterial({ map: textures.musicBlackboard }),
-    sealedLocker: new THREE.MeshLambertMaterial({ map: textures.sealedLocker }),
-    plaster: new THREE.MeshLambertMaterial({ color: 0xd0cec4 }),
-    pianoBlack: new THREE.MeshLambertMaterial({ color: 0x121216 }),
-    pianoKeys: new THREE.MeshLambertMaterial({ color: 0xe2dfd2 }),
-    curtain: new THREE.MeshLambertMaterial({ color: 0x99a69f, side: THREE.DoubleSide }),
-    exitSign: new THREE.MeshBasicMaterial({ color: 0x2de068 }),
-    fluorescentOn: new THREE.MeshBasicMaterial({ color: 0xdaf2ff }),
-    fluorescentOff: new THREE.MeshLambertMaterial({ color: 0x363b3e }),
-    ground: new THREE.MeshLambertMaterial({ map: textures.ground }),
-    pouch: new THREE.MeshLambertMaterial({ color: 0xb8283c, emissive: 0x3a0810 }),
-    paper: new THREE.MeshLambertMaterial({ color: 0xdfd8c0, emissive: 0x1a1810 })
+    woodDark: new THREE.MeshStandardMaterial({ color: 0x3b2a1c, roughness: 0.68, metalness: 0.04 }),
+    woodMid: new THREE.MeshStandardMaterial({ color: 0x62462e, roughness: 0.62, metalness: 0.04 }),
+    metalDark: new THREE.MeshStandardMaterial({ color: 0x3b4248, roughness: 0.38, metalness: 0.62 }),
+    locker: new THREE.MeshStandardMaterial({ color: 0x4b5752, roughness: 0.42, metalness: 0.55 }),
+    lockerDoor: new THREE.MeshStandardMaterial({ map: textures.lockerDoor, roughness: 0.42, metalness: 0.52 }),
+    blackboard: new THREE.MeshStandardMaterial({ map: textures.blackboard, roughness: 0.84, metalness: 0.02 }),
+    musicBlackboard: new THREE.MeshStandardMaterial({ map: textures.musicBlackboard, roughness: 0.84, metalness: 0.02 }),
+    sealedLocker: new THREE.MeshStandardMaterial({ map: textures.sealedLocker, roughness: 0.82, metalness: 0.1 }),
+    plaster: new THREE.MeshStandardMaterial({ color: 0xd8d5cb, roughness: 0.78, metalness: 0.02 }),
+    pianoBlack: new THREE.MeshStandardMaterial({ color: 0x101116, roughness: 0.14, metalness: 0.14 }),
+    pianoKeys: new THREE.MeshStandardMaterial({ color: 0xebe8dc, roughness: 0.28, metalness: 0.02 }),
+    curtain: new THREE.MeshStandardMaterial({ color: 0x99a69f, roughness: 0.92, side: THREE.DoubleSide }),
+    exitSign: new THREE.MeshStandardMaterial({ color: 0x1c7d3c, emissive: 0x2de068, emissiveIntensity: 1.4, roughness: 0.3 }),
+    fluorescentOn: new THREE.MeshStandardMaterial({ color: 0xe8f6ff, emissive: 0xc2e6ff, emissiveIntensity: 1.4, roughness: 0.2 }),
+    fluorescentOff: new THREE.MeshStandardMaterial({ color: 0x363b3e, roughness: 0.5, metalness: 0.2 }),
+    ground: new THREE.MeshStandardMaterial({ map: textures.ground, roughness: 0.96, metalness: 0.0 }),
+    pouch: new THREE.MeshStandardMaterial({ color: 0xc42840, emissive: 0x4a0b15, roughness: 0.6 }),
+    paper: new THREE.MeshStandardMaterial({ color: 0xe6dfc8, emissive: 0x1a1810, roughness: 0.85 })
   };
 
-  // --- ヘルパー：壁・床・家具 ---
+  // --- ヘルパー：壁・床・家具（PBR＋ソフトシャドウ対応） ---
   function addBox(x1, x2, y1, y2, z1, z2, mat, solid = true, repeatTex = false) {
     const w = Math.abs(x2 - x1);
     const h = Math.abs(y2 - y1);
@@ -87,11 +130,14 @@ export function buildSchoolMap(scene, textures) {
       const repX = Math.max(1, Math.round(Math.max(w, d) / 3.2));
       const repY = Math.max(1, Math.round(h / 3.2));
       clonedTex.repeat.set(repX, repY);
-      useMat = new THREE.MeshLambertMaterial({ map: clonedTex });
+      useMat = mat.clone();
+      useMat.map = clonedTex;
     }
 
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), useMat);
     mesh.position.set((x1 + x2) / 2, (y1 + y2) / 2, (z1 + z2) / 2);
+    mesh.castShadow = solid;
+    mesh.receiveShadow = true;
     mapGroup.add(mesh);
 
     if (solid) {
@@ -110,15 +156,31 @@ export function buildSchoolMap(scene, textures) {
   function addFloorSlab(x1, x2, y, z1, z2, mat) {
     const w = x2 - x1;
     const d = z2 - z1;
-    const tex = mat.map ? mat.map.clone() : null;
     let m = mat;
-    if (tex) {
+    if (mat.map) {
+      const repX = Math.max(1, Math.round(w / 2.6));
+      const repY = Math.max(1, Math.round(d / 2.6));
+      const tex = mat.map.clone();
       tex.needsUpdate = true;
-      tex.repeat.set(Math.max(1, Math.round(w / 2.6)), Math.max(1, Math.round(d / 2.6)));
-      m = new THREE.MeshLambertMaterial({ map: tex });
+      tex.repeat.set(repX, repY);
+      m = mat.clone();
+      m.map = tex;
+      if (mat.roughnessMap) {
+        const rTex = mat.roughnessMap.clone();
+        rTex.needsUpdate = true;
+        rTex.repeat.set(repX, repY);
+        m.roughnessMap = rTex;
+      }
+      if (mat.bumpMap) {
+        const bTex = mat.bumpMap.clone();
+        bTex.needsUpdate = true;
+        bTex.repeat.set(repX, repY);
+        m.bumpMap = bTex;
+      }
     }
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, 0.16, d), m);
     mesh.position.set((x1 + x2) / 2, y - 0.08, (z1 + z2) / 2);
+    mesh.receiveShadow = true;
     mapGroup.add(mesh);
   }
 
@@ -128,11 +190,11 @@ export function buildSchoolMap(scene, textures) {
     const tex = textures.ceiling.clone();
     tex.needsUpdate = true;
     tex.repeat.set(Math.max(1, Math.round(w / 3)), Math.max(1, Math.round(d / 3)));
-    const mesh = new THREE.Mesh(
-      new THREE.BoxGeometry(w, 0.14, d),
-      new THREE.MeshLambertMaterial({ map: tex })
-    );
+    const m = mats.ceiling.clone();
+    m.map = tex;
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, 0.14, d), m);
     mesh.position.set((x1 + x2) / 2, y - 0.07, (z1 + z2) / 2);
+    mesh.receiveShadow = true;
     mapGroup.add(mesh);
   }
 
@@ -239,13 +301,13 @@ export function buildSchoolMap(scene, textures) {
     if (axis === 'x') {
       addBox(start, end, floorY, yLow, fixedCoord - WALL_T / 2, fixedCoord + WALL_T / 2, mat, true, true);
       addBox(start, end, yHigh, yTop, fixedCoord - WALL_T / 2, fixedCoord + WALL_T / 2, mat, true, false);
-      // ガラス板（当たり判定あり）
+      // ガラス板（PBR反射＋当たり判定あり）
       const gTex = textures.windowGlass.clone();
       gTex.needsUpdate = true;
       gTex.repeat.set(Math.max(1, Math.round(len / 2.2)), 1);
       const glass = new THREE.Mesh(
         new THREE.BoxGeometry(len, yHigh - yLow, 0.08),
-        new THREE.MeshLambertMaterial({ map: gTex, transparent: true, opacity: 0.55 })
+        new THREE.MeshStandardMaterial({ map: gTex, transparent: true, opacity: 0.56, roughness: 0.1, metalness: 0.25 })
       );
       glass.position.set((start + end) / 2, (yLow + yHigh) / 2, fixedCoord);
       mapGroup.add(glass);
@@ -261,7 +323,7 @@ export function buildSchoolMap(scene, textures) {
       gTex.repeat.set(Math.max(1, Math.round(len / 2.2)), 1);
       const glass = new THREE.Mesh(
         new THREE.BoxGeometry(0.08, yHigh - yLow, len),
-        new THREE.MeshLambertMaterial({ map: gTex, transparent: true, opacity: 0.55 })
+        new THREE.MeshStandardMaterial({ map: gTex, transparent: true, opacity: 0.56, roughness: 0.1, metalness: 0.25 })
       );
       glass.position.set(fixedCoord, (yLow + yHigh) / 2, (start + end) / 2);
       mapGroup.add(glass);
@@ -272,23 +334,28 @@ export function buildSchoolMap(scene, textures) {
     }
   }
 
-  // 廊下の蛍光灯（一部がチカチカ明滅する）
+  // 廊下の蛍光灯（立体アルミカバー＋チカチカ明滅するリアル蛍光灯）
   function addFluorescent(x, floorY, z, mode = 'dim') {
     const y = floorY + FLOOR_H - 0.18;
     const isLit = mode === 'on' || mode === 'flicker' || mode === 'dim';
+    // 天井器具カバー
+    const fixture = new THREE.Mesh(new THREE.BoxGeometry(1.22, 0.05, 0.26), mats.metalDark);
+    fixture.position.set(x, y + 0.05, z);
+    mapGroup.add(fixture);
+
     const bar = new THREE.Mesh(
-      new THREE.BoxGeometry(1.1, 0.07, 0.18),
+      new THREE.BoxGeometry(1.12, 0.06, 0.16),
       isLit ? mats.fluorescentOn.clone() : mats.fluorescentOff
     );
     bar.position.set(x, y, z);
     mapGroup.add(bar);
 
     if (mode === 'flicker' || mode === 'on') {
-      const light = new THREE.PointLight(0xb8dcff, mode === 'on' ? 1.15 : 0.9, 11.5, 1.8);
-      light.position.set(x, y - 0.25, z);
+      const light = new THREE.PointLight(0xbce0ff, mode === 'on' ? 1.55 : 1.25, 13.5, 1.7);
+      light.position.set(x, y - 0.28, z);
       mapGroup.add(light);
       if (mode === 'flicker') {
-        flickers.push({ light, bar, baseIntensity: 1.0, timer: Math.random() * 2 });
+        flickers.push({ light, bar, baseIntensity: 1.35, timer: Math.random() * 2 });
       }
     }
   }
@@ -415,35 +482,86 @@ export function buildSchoolMap(scene, textures) {
   }
 
   // =========================================================================
-  // 1. 中庭＆夜の地面・外周
+  // 1. 中庭＆夜の地面・満月・星空・差し込む月光・漂う埃パーティクル
   // =========================================================================
   const ground = new THREE.Mesh(new THREE.PlaneGeometry(140, 140), mats.ground);
   ground.rotation.x = -Math.PI / 2;
   ground.position.set(10, -0.18, 0);
+  ground.receiveShadow = true;
   mapGroup.add(ground);
+
+  // 夜の満月＆青白い月光（中庭や渡り廊下の窓から差し込む！）
+  const moonMesh = new THREE.Mesh(
+    new THREE.SphereGeometry(2.6, 20, 20),
+    new THREE.MeshBasicMaterial({ color: 0xe6f0ff })
+  );
+  moonMesh.position.set(-18, 34, 48);
+  mapGroup.add(moonMesh);
+
+  const moonLight = new THREE.DirectionalLight(0x7ea4e0, 0.52);
+  moonLight.position.set(-18, 34, 48);
+  mapGroup.add(moonLight);
+
+  // 夜空の星空（中庭から見上げると星が瞬く）
+  const starCount = 260;
+  const starPos = new Float32Array(starCount * 3);
+  for (let i = 0; i < starCount; i++) {
+    const theta = Math.random() * Math.PI * 2;
+    const phi = Math.random() * Math.PI * 0.42;
+    const rad = 58;
+    starPos[i * 3] = 10 + Math.sin(phi) * Math.cos(theta) * rad;
+    starPos[i * 3 + 1] = 14 + Math.cos(phi) * rad * 0.7;
+    starPos[i * 3 + 2] = Math.sin(phi) * Math.sin(theta) * rad;
+  }
+  const starGeo = new THREE.BufferGeometry();
+  starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
+  const starMat = new THREE.PointsMaterial({ color: 0xcce0ff, size: 0.35, transparent: true, opacity: 0.75, fog: false });
+  mapGroup.add(new THREE.Points(starGeo, starMat));
+
+  // 校舎内を漂う微細な埃パーティクル（光の中でフワフワ舞う空気感！）
+  const dustCount = 460;
+  const dustPos = new Float32Array(dustCount * 3);
+  for (let i = 0; i < dustCount; i++) {
+    dustPos[i * 3] = -21 + Math.random() * 66;
+    dustPos[i * 3 + 1] = 0.4 + Math.random() * 11.2;
+    dustPos[i * 3 + 2] = -17 + Math.random() * 32;
+  }
+  const dustGeo = new THREE.BufferGeometry();
+  dustGeo.setAttribute('position', new THREE.BufferAttribute(dustPos, 3));
+  const dustMat = new THREE.PointsMaterial({
+    color: 0xdbe6f5,
+    size: 0.045,
+    transparent: true,
+    opacity: 0.32,
+    depthWrite: false
+  });
+  const dustPoints = new THREE.Points(dustGeo, dustMat);
+  mapGroup.add(dustPoints);
 
   // 中庭のベンチ・街灯・古い木
   addBox(-2, 2, -0.15, 0.45, 4.5, 5.3, mats.woodDark, false);
   // 中庭の街灯（ぼんやり青白く光る）
   addBox(-0.1, 0.1, -0.15, 4.2, 1.9, 2.1, mats.metalDark, false);
-  const yardLamp = new THREE.Mesh(new THREE.SphereGeometry(0.22, 6, 6), mats.fluorescentOn);
+  const yardLamp = new THREE.Mesh(new THREE.SphereGeometry(0.24, 14, 14), mats.fluorescentOn);
   yardLamp.position.set(0, 4.25, 2.0);
   mapGroup.add(yardLamp);
-  const yardLight = new THREE.PointLight(0x8cb8e8, 1.3, 22, 1.6);
+  const yardLight = new THREE.PointLight(0x9bc4f5, 2.4, 26, 1.5);
   yardLight.position.set(0, 4.0, 2.0);
   mapGroup.add(yardLight);
 
-  // 中庭の木（ローポリ）
+  // 中庭の木（少し滑らかな多層ローポリ）
   [[-5.5, 8.5], [5.8, 10.5], [-4.5, -1.5]].forEach(([tx, tz]) => {
-    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.3, 3.2, 5), mats.woodDark);
+    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.32, 3.2, 10), mats.woodDark);
     trunk.position.set(tx, 1.5, tz);
+    trunk.castShadow = true;
     mapGroup.add(trunk);
-    const leaves = new THREE.Mesh(
-      new THREE.ConeGeometry(1.7, 3.4, 6),
-      new THREE.MeshLambertMaterial({ color: 0x162418 })
-    );
-    leaves.position.set(tx, 4.2, tz);
-    mapGroup.add(leaves);
+    const leafMat = new THREE.MeshStandardMaterial({ color: 0x16291a, roughness: 0.92 });
+    const leaves1 = new THREE.Mesh(new THREE.ConeGeometry(1.85, 3.0, 10), leafMat);
+    leaves1.position.set(tx, 3.7, tz);
+    mapGroup.add(leaves1);
+    const leaves2 = new THREE.Mesh(new THREE.ConeGeometry(1.35, 2.6, 10), leafMat);
+    leaves2.position.set(tx, 5.1, tz);
+    mapGroup.add(leaves2);
   });
 
   // =========================================================================
@@ -1148,23 +1266,28 @@ export function buildSchoolMap(scene, textures) {
     new THREE.Vector3(-12, 8, -8)
   ];
 
-  // 蛍光灯の明滅アニメーション更新
+  // 蛍光灯の明滅アニメーション＆埃パーティクルの揺らぎ更新
+  let dustTime = 0;
   function updateLights(dt) {
+    dustTime += dt;
+    dustPoints.position.y = Math.sin(dustTime * 0.45) * 0.14;
+    dustPoints.position.x = Math.cos(dustTime * 0.25) * 0.12;
+
     for (const f of flickers) {
       f.timer -= dt;
       if (f.timer <= 0) {
         const roll = Math.random();
         if (roll < 0.25) {
-          f.light.intensity = 0.05;
-          f.bar.material.color.setHex(0x2a3338);
+          f.light.intensity = 0.08;
+          if (f.bar.material.emissiveIntensity !== undefined) f.bar.material.emissiveIntensity = 0.08;
           f.timer = 0.05 + Math.random() * 0.14;
         } else if (roll < 0.45) {
           f.light.intensity = f.baseIntensity * 0.45;
-          f.bar.material.color.setHex(0x7ca2ba);
+          if (f.bar.material.emissiveIntensity !== undefined) f.bar.material.emissiveIntensity = 0.55;
           f.timer = 0.08 + Math.random() * 0.18;
         } else {
           f.light.intensity = f.baseIntensity;
-          f.bar.material.color.setHex(0xdaf2ff);
+          if (f.bar.material.emissiveIntensity !== undefined) f.bar.material.emissiveIntensity = 1.45;
           f.timer = 0.4 + Math.random() * 2.2;
         }
       }

@@ -20,6 +20,9 @@ html, body {
   width: 100vw;
   height: 100vh;
   display: block;
+}
+
+#game-canvas.pixelated {
   image-rendering: pixelated;
   image-rendering: crisp-edges;
 }
@@ -97,7 +100,7 @@ html, body {
   padding: 6px 16px;
 }
 
-/* PS1 / CRT スキャンライン */
+/* PS1 / CRT スキャンライン（高精細モード時は極薄フィルム調） */
 #scanlines {
   position: fixed;
   inset: 0;
@@ -110,6 +113,11 @@ html, body {
     rgba(0, 0, 0, 0.22) 3px,
     rgba(0, 0, 0, 0.22) 4px
   );
+  transition: opacity 0.25s ease;
+}
+
+#scanlines.subtle {
+  opacity: 0.14;
 }
 
 #vignette {
