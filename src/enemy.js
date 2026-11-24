@@ -124,6 +124,11 @@ export class RedCoatWoman {
     this.group.position.copy(this.position);
     this.group.visible = false;
     this.scene.add(this.group);
+
+    // 赤いオーラ光はscene直下に常駐（visible=true固定、非アクティブ時はintensity=0で再コンパイル完全ゼロ！）
+    this.aura = new THREE.PointLight(0xb80c1c, 0, 8.0, 1.6);
+    this.aura.position.copy(this.position).add(new THREE.Vector3(0, 1.5, 0));
+    this.scene.add(this.aura);
   }
 
   // 赤いコートと赤い帽子を着た「形がいびつな女の人」（高精細PBR＋シャドウ対応）
@@ -267,10 +272,6 @@ export class RedCoatWoman {
       }
     });
 
-    const aura = new THREE.PointLight(0xb80c1c, 0.85, 7.2, 1.7);
-    aura.position.set(0, 1.5, 0.28);
-    root.add(aura);
-
     return root;
   }
 
@@ -284,6 +285,8 @@ export class RedCoatWoman {
       this.group.position.copy(spawnPos);
     }
     this.group.visible = true;
+    this.aura.intensity = 1.05;
+    this.aura.position.set(this.position.x, this.position.y + 1.5, this.position.z);
     this.currentPath = [];
     this.pathTimer = 0;
   }
@@ -292,6 +295,7 @@ export class RedCoatWoman {
     this.active = false;
     this.state = 'idle';
     this.group.visible = false;
+    this.aura.intensity = 0;
   }
 
   findNearestNode(pos, colliders = null) {
@@ -664,6 +668,7 @@ export class RedCoatWoman {
     this.group.rotation.y += diff * Math.min(1, dt * 8);
 
     this.group.position.copy(this.position);
+    this.aura.position.set(this.position.x, this.position.y + 1.5, this.position.z);
     const actuallyMoved = Math.hypot(this.position.x - prevX, this.position.z - prevZ) + Math.abs(dy);
     return actuallyMoved > step * 0.2;
   }

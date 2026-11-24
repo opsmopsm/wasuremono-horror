@@ -50,9 +50,12 @@ function buildHumanNPC(uniformColor, hatColor = null, hasFlashlight = false) {
     torch.position.set(0, -0.54, 0.1);
     rArmPivot.add(torch);
 
-    const light = new THREE.PointLight(0xfff1c9, 1.9, 10.5, 1.6);
-    light.position.set(0, -0.55, 0.45);
-    rArmPivot.add(light);
+    const lens = new THREE.Mesh(
+      new THREE.SphereGeometry(0.04, 8, 8),
+      new THREE.MeshBasicMaterial({ color: 0xfff5cc })
+    );
+    lens.position.set(0, -0.54, 0.22);
+    rArmPivot.add(lens);
   }
   g.add(rArmPivot);
 

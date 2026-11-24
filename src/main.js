@@ -123,18 +123,19 @@ function renderEndingTrackers() {
 renderEndingTrackers();
 
 // =========================================================================
-// Three.js セットアップ（高精細PBR＋ACESFilmicトーンマッピング＋ソフトシャドウ）
+// Three.js セットアップ（高FPS最適化＋ACESFilmicトーンマッピング＋強力懐中電灯）
 // =========================================================================
 const renderer = new THREE.WebGLRenderer({
   canvas,
-  antialias: true,
+  antialias: !isTouchMode,
   powerPreference: 'high-performance'
 });
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.18;
-renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMappingExposure = 1.32;
+// スマホはシャドウマップOFFでFPSを2〜3倍に向上、PCは軽量PCFShadowMapを使用
+renderer.shadowMap.enabled = !isTouchMode;
+renderer.shadowMap.type = THREE.PCFShadowMap;
 
 const scanlinesEl = document.getElementById('scanlines');
 let ps1Mode = false; // デフォルトを高精細リッチホラー画質に！（PキーでPS1レトロ切替可）
@@ -153,7 +154,7 @@ function updateResolution() {
     if (scanlinesEl) scanlinesEl.classList.remove('subtle');
     if (qualityBadge) qualityBadge.textContent = '画質: PS1レトロ [P]';
   } else {
-    const maxPR = isTouchMode ? 1.5 : 2;
+    const maxPR = isTouchMode ? 1.0 : 1.5;
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, maxPR));
     renderer.setSize(window.innerWidth, window.innerHeight, false);
     canvas.classList.remove('pixelated');
@@ -164,31 +165,31 @@ function updateResolution() {
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x050811);
-scene.fog = new THREE.FogExp2(0x050811, 0.068);
+scene.fog = new THREE.FogExp2(0x050811, 0.048);
 
-const camera = new THREE.PerspectiveCamera(68, window.innerWidth / Math.max(1, window.innerHeight), 0.05, 85);
+const camera = new THREE.PerspectiveCamera(68, window.innerWidth / Math.max(1, window.innerHeight), 0.05, 80);
 window.addEventListener('resize', updateResolution);
 updateResolution();
 
-// 立体的な夜の環境光（青白い夜空からの光＋暗い床の照り返し）
-const ambient = new THREE.HemisphereLight(0x3a4f78, 0x181512, 0.48);
+// 立体的な夜の環境光（見やすさとホラーの陰影を両立）
+const ambient = new THREE.HemisphereLight(0x465d8c, 0x1e1b18, 0.58);
 scene.add(ambient);
 
-// 手持ちの懐中電灯（リアルタイム・ソフトシャドウ投射！）
-const flashlight = new THREE.SpotLight(0xfff1d2, 5.2, 32, Math.PI / 4.8, 0.62, 1.35);
-flashlight.castShadow = true;
-const shadowRes = isTouchMode ? 512 : 1024;
-flashlight.shadow.mapSize.width = shadowRes;
-flashlight.shadow.mapSize.height = shadowRes;
+// 手持ちの強力LED懐中電灯（visibleは常にtrue固定・ON/OFFはintensity切替で途中ロード0回！）
+const FLASHLIGHT_POWER = 18.0;
+const flashlight = new THREE.SpotLight(0xfff6df, FLASHLIGHT_POWER, 52, Math.PI / 3.6, 0.52, 1.0);
+flashlight.castShadow = !isTouchMode;
+flashlight.shadow.mapSize.width = 512;
+flashlight.shadow.mapSize.height = 512;
 flashlight.shadow.camera.near = 0.25;
-flashlight.shadow.camera.far = 30;
-flashlight.shadow.bias = -0.0008;
+flashlight.shadow.camera.far = 22;
+flashlight.shadow.bias = -0.001;
 const flashlightTarget = new THREE.Object3D();
 scene.add(flashlight);
 scene.add(flashlightTarget);
 flashlight.target = flashlightTarget;
 
-const playerGlow = new THREE.PointLight(0xaec2de, 0.42, 4.6, 1.8);
+const playerGlow = new THREE.PointLight(0xdce8fa, 2.2, 11.0, 1.4);
 scene.add(playerGlow);
 
 // =========================================================================
@@ -370,6 +371,15 @@ const cutscenes = new CutsceneDirector(
   }
 );
 
+// 起動時に全マテリアル＆敵モデルのシェーダーを一括プリコンパイル（プレイ中の途中ロード・フリーズを完全ゼロ化！）
+{
+  const prevEnemyVis = enemy.group.visible;
+  enemy.group.visible = true;
+  schoolMap.updateLights(0, player.pos);
+  renderer.compile(scene, camera);
+  enemy.group.visible = prevEnemyVis;
+}
+
 // =========================================================================
 // ロッカーに隠れる／出るシステム（隙間から外が見える！）
 // =========================================================================
@@ -466,9 +476,9 @@ function resetGame() {
   story.notesFound.clear();
 
   // 夜の暗闇に戻す
-  scene.fog.density = 0.068;
+  scene.fog.density = 0.048;
   scene.fog.color.setHex(0x050811);
-  ambient.intensity = 0.48;
+  ambient.intensity = 0.58;
 
   for (const d of schoolMap.doors) {
     d.isOpen = false;
@@ -487,10 +497,13 @@ function resetGame() {
     if (item.type === 'pouch' || item.type === 'key_item') {
       item.collected = false;
       if (item.mesh) item.mesh.visible = true;
-      if (item.light) item.light.visible = true;
+      if (item.light) item.light.active = true;
     }
     if (item.id === 'sealed_locker') {
-      if (item.releaseLight) item.releaseLight.intensity = 0.0;
+      if (item.releaseLight) {
+        item.releaseLight.intensity = 0.0;
+        item.releaseLight.active = false;
+      }
     }
   }
 
@@ -854,7 +867,9 @@ function updatePlayer(dt) {
     camera.rotation.y = locker.faceYaw + player.peekYawOffset;
     camera.rotation.x = player.peekPitch;
 
-    flashlight.visible = false;
+    flashlight.intensity = 0;
+    playerGlow.intensity = 0.45;
+    playerGlow.distance = 5.5;
     const fwd = new THREE.Vector3(-Math.sin(locker.faceYaw), 0, -Math.cos(locker.faceYaw));
     playerGlow.position.copy(locker.insideCamPos).addScaledVector(fwd, 0.8);
 
@@ -934,15 +949,17 @@ function updatePlayer(dt) {
   camera.rotation.y = player.yaw;
   camera.rotation.x = player.pitch;
 
-  flashlight.visible = player.flashlightOn;
+  flashlight.intensity = player.flashlightOn ? FLASHLIGHT_POWER : 0;
+  playerGlow.intensity = player.flashlightOn ? 2.2 : 0.32;
+  playerGlow.distance = player.flashlightOn ? 11.0 : 4.5;
   if (player.flashlightOn) {
     const dir = new THREE.Vector3(0, 0, -1).applyEuler(camera.rotation);
     const rightVec = new THREE.Vector3(1, 0, 0).applyEuler(camera.rotation);
     // 壁際でも懐中電灯が壁の裏に突き抜けないようオフセットを小さく抑える
     flashlight.position.copy(camera.position)
       .addScaledVector(rightVec, 0.07)
-      .add(new THREE.Vector3(0, -0.10 + bobOffset * 0.4, 0));
-    flashlightTarget.position.copy(camera.position).addScaledVector(dir, 8);
+      .add(new THREE.Vector3(0, -0.08 + bobOffset * 0.4, 0));
+    flashlightTarget.position.copy(camera.position).addScaledVector(dir, 10);
   }
   playerGlow.position.copy(camera.position);
 
@@ -1117,7 +1134,7 @@ function tryInteract() {
   if (item.type === 'pouch') {
     item.collected = true;
     item.mesh.visible = false;
-    item.light.visible = false;
+    if (item.light) item.light.active = false;
     story.items.pouch = true;
     updateInventoryHUD();
     updateObjectiveText();
@@ -1146,7 +1163,7 @@ function tryInteract() {
   if (item.type === 'key_item') {
     item.collected = true;
     item.mesh.visible = false;
-    item.light.visible = false;
+    if (item.light) item.light.active = false;
     story.items[item.itemKey] = true;
     updateInventoryHUD();
     updateObjectiveText();
@@ -1234,10 +1251,13 @@ function tryInteract() {
       triggerFlash('rgba(255, 248, 220, 0.85)', 700);
 
       // 校舎の異界霧が晴れ、穏やかな夜の空気へ
-      scene.fog.density = 0.036;
+      scene.fog.density = 0.032;
       scene.fog.color.setHex(0x0b1220);
       ambient.intensity = 1.15;
-      if (item.releaseLight) item.releaseLight.intensity = 2.6;
+      if (item.releaseLight) {
+        item.releaseLight.active = true;
+        item.releaseLight.intensity = 3.0;
+      }
 
       updateObjectiveText();
       queueDialogues([
@@ -1678,7 +1698,7 @@ function animate(now) {
     camera.position.x += (Math.random() - 0.5) * 0.14;
     camera.position.y += (Math.random() - 0.5) * 0.14;
     camera.lookAt(facePos);
-    flashlight.visible = true;
+    flashlight.intensity = FLASHLIGHT_POWER;
     flashlight.position.copy(camera.position);
     flashlightTarget.position.copy(facePos);
 

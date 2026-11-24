@@ -36,9 +36,35 @@ export function buildSchoolMap(scene, textures) {
   const lockers = [];       // 隠れられるスチールロッカー
   const interactables = []; // 机・忘れ物・封鎖楽器庫・出口・メモなど
   const flickers = [];      // 明滅する蛍光灯
-  const sceneLights = [];   // 距離カリング対象のPointLight一覧（WebGL安定化＆高速化）
+  const virtualLights = []; // 仮想PointLight一覧（固定プールへ毎フレーム割当→途中シェーダー再コンパイル0回！）
   const stairZones = [];    // 階段の高さ補間ゾーン
   const matCache = new Map(); // 同一タイリングのマテリアルを再利用してVRAM/コンパイル負荷を激減！
+
+  // 固定4灯のPointLightプール（visibleは常にtrue固定！途中でライト数を増減させないことでロード/フリーズ完全解消）
+  const LIGHT_POOL_SIZE = 4;
+  const lightPool = [];
+  for (let i = 0; i < LIGHT_POOL_SIZE; i++) {
+    const pl = new THREE.PointLight(0xbce0ff, 0, 14, 1.6);
+    pl.position.set(0, -100, 0);
+    mapGroup.add(pl);
+    lightPool.push(pl);
+  }
+
+  function addVirtualLight(x, y, z, color, baseIntensity, distance = 13.5, decay = 1.65) {
+    const entry = {
+      x,
+      y,
+      z,
+      color: new THREE.Color(color),
+      baseIntensity,
+      intensity: baseIntensity,
+      distance,
+      decay,
+      active: true
+    };
+    virtualLights.push(entry);
+    return entry;
+  }
 
   // 共通PBRマテリアル（リアルな質感・光沢・凹凸）
   const mats = {
@@ -118,33 +144,42 @@ export function buildSchoolMap(scene, textures) {
     paper: new THREE.MeshStandardMaterial({ color: 0xe6dfc8, emissive: 0x1a1810, roughness: 0.85 })
   };
 
-  // 同じタイリング比率のマテリアルをキャッシュ再利用するヘルパー
+  // 同じタイリング比率のマテリアルをキャッシュ再利用するヘルパー（1/2/4/8に量子化してマテリアル総数を激減！）
+  function snapRepeat(v) {
+    if (v <= 1) return 1;
+    if (v <= 2) return 2;
+    if (v <= 5) return 4;
+    return 8;
+  }
+
   function getTiledMaterial(baseMat, repX, repY) {
-    if (!baseMat.map || (repX === 1 && repY === 1)) return baseMat;
-    const key = `${baseMat.uuid}_${repX}_${repY}`;
+    const sx = snapRepeat(repX);
+    const sy = snapRepeat(repY);
+    if (!baseMat.map || (sx === 1 && sy === 1)) return baseMat;
+    const key = `${baseMat.uuid}_${sx}_${sy}`;
     if (matCache.has(key)) return matCache.get(key);
     const clonedMat = baseMat.clone();
     const clonedTex = baseMat.map.clone();
     clonedTex.needsUpdate = true;
-    clonedTex.repeat.set(repX, repY);
+    clonedTex.repeat.set(sx, sy);
     clonedMat.map = clonedTex;
     if (baseMat.roughnessMap) {
       const rTex = baseMat.roughnessMap.clone();
       rTex.needsUpdate = true;
-      rTex.repeat.set(repX, repY);
+      rTex.repeat.set(sx, sy);
       clonedMat.roughnessMap = rTex;
     }
     if (baseMat.bumpMap) {
       const bTex = baseMat.bumpMap.clone();
       bTex.needsUpdate = true;
-      bTex.repeat.set(repX, repY);
+      bTex.repeat.set(sx, sy);
       clonedMat.bumpMap = bTex;
     }
     matCache.set(key, clonedMat);
     return clonedMat;
   }
 
-  // --- ヘルパー：壁・床・家具（PBR＋ソフトシャドウ対応＋キャッシュ最適化） ---
+  // --- ヘルパー：壁・床・家具（軽量化：壁・家具の過剰なcastShadowを無効化し高FPS維持） ---
   function addBox(x1, x2, y1, y2, z1, z2, mat, solid = true, repeatTex = false) {
     const w = Math.abs(x2 - x1);
     const h = Math.abs(y2 - y1);
@@ -160,7 +195,7 @@ export function buildSchoolMap(scene, textures) {
 
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), useMat);
     mesh.position.set((x1 + x2) / 2, (y1 + y2) / 2, (z1 + z2) / 2);
-    mesh.castShadow = solid;
+    mesh.castShadow = false;
     mesh.receiveShadow = true;
     mapGroup.add(mesh);
 
@@ -304,14 +339,9 @@ export function buildSchoolMap(scene, textures) {
     if (axis === 'x') {
       addBox(start, end, floorY, yLow, fixedCoord - WALL_T / 2, fixedCoord + WALL_T / 2, mat, true, true);
       addBox(start, end, yHigh, yTop, fixedCoord - WALL_T / 2, fixedCoord + WALL_T / 2, mat, true, false);
-      // ガラス板（PBR反射＋当たり判定あり）
-      const gTex = textures.windowGlass.clone();
-      gTex.needsUpdate = true;
-      gTex.repeat.set(Math.max(1, Math.round(len / 2.2)), 1);
-      const glass = new THREE.Mesh(
-        new THREE.BoxGeometry(len, yHigh - yLow, 0.08),
-        new THREE.MeshStandardMaterial({ map: gTex, transparent: true, opacity: 0.56, roughness: 0.1, metalness: 0.25 })
-      );
+      // ガラス板（キャッシュ済みマテリアル共有で超軽量！）
+      const gMat = getTiledMaterial(mats.windowGlass, Math.max(1, Math.round(len / 2.2)), 1);
+      const glass = new THREE.Mesh(new THREE.BoxGeometry(len, yHigh - yLow, 0.08), gMat);
       glass.position.set((start + end) / 2, (yLow + yHigh) / 2, fixedCoord);
       mapGroup.add(glass);
       colliders.push({
@@ -321,13 +351,8 @@ export function buildSchoolMap(scene, textures) {
     } else {
       addBox(fixedCoord - WALL_T / 2, fixedCoord + WALL_T / 2, floorY, yLow, start, end, mat, true, true);
       addBox(fixedCoord - WALL_T / 2, fixedCoord + WALL_T / 2, yHigh, yTop, start, end, mat, true, false);
-      const gTex = textures.windowGlass.clone();
-      gTex.needsUpdate = true;
-      gTex.repeat.set(Math.max(1, Math.round(len / 2.2)), 1);
-      const glass = new THREE.Mesh(
-        new THREE.BoxGeometry(0.08, yHigh - yLow, len),
-        new THREE.MeshStandardMaterial({ map: gTex, transparent: true, opacity: 0.56, roughness: 0.1, metalness: 0.25 })
-      );
+      const gMat = getTiledMaterial(mats.windowGlass, Math.max(1, Math.round(len / 2.2)), 1);
+      const glass = new THREE.Mesh(new THREE.BoxGeometry(0.08, yHigh - yLow, len), gMat);
       glass.position.set(fixedCoord, (yLow + yHigh) / 2, (start + end) / 2);
       mapGroup.add(glass);
       colliders.push({
@@ -337,62 +362,65 @@ export function buildSchoolMap(scene, textures) {
     }
   }
 
-  // 廊下の蛍光灯（立体アルミカバー＋チカチカ明滅するリアル蛍光灯）
+  // 廊下の蛍光灯（仮想ライト＋共有マテリアルで超軽量＆途中ロードゼロ！）
+  const fixtureGeo = new THREE.BoxGeometry(1.22, 0.05, 0.26);
+  const barGeo = new THREE.BoxGeometry(1.12, 0.06, 0.16);
   function addFluorescent(x, floorY, z, mode = 'dim') {
     const y = floorY + FLOOR_H - 0.18;
     const isLit = mode === 'on' || mode === 'flicker' || mode === 'dim';
-    // 天井器具カバー
-    const fixture = new THREE.Mesh(new THREE.BoxGeometry(1.22, 0.05, 0.26), mats.metalDark);
+    const fixture = new THREE.Mesh(fixtureGeo, mats.metalDark);
     fixture.position.set(x, y + 0.05, z);
     mapGroup.add(fixture);
 
-    const bar = new THREE.Mesh(
-      new THREE.BoxGeometry(1.12, 0.06, 0.16),
-      isLit ? mats.fluorescentOn.clone() : mats.fluorescentOff
-    );
+    const barMat = mode === 'flicker'
+      ? mats.fluorescentOn.clone()
+      : (isLit ? mats.fluorescentOn : mats.fluorescentOff);
+    const bar = new THREE.Mesh(barGeo, barMat);
     bar.position.set(x, y, z);
     mapGroup.add(bar);
 
     if (mode === 'flicker' || mode === 'on') {
-      const light = new THREE.PointLight(0xbce0ff, mode === 'on' ? 1.55 : 1.25, 13.5, 1.7);
-      light.position.set(x, y - 0.28, z);
-      mapGroup.add(light);
-      sceneLights.push({ light, baseIntensity: mode === 'on' ? 1.55 : 1.25 });
+      const baseInt = mode === 'on' ? 1.8 : 1.45;
+      const vLight = addVirtualLight(x, y - 0.28, z, 0xbce0ff, baseInt, 14.5, 1.55);
       if (mode === 'flicker') {
-        flickers.push({ light, bar, baseIntensity: 1.35, timer: Math.random() * 2 });
+        flickers.push({ light: vLight, bar, baseIntensity: baseInt, timer: Math.random() * 2 });
       }
     }
   }
 
-  // 緑の非常口誘導灯
+  // 緑の非常口誘導灯（仮想ライト利用）
+  const exitSignGeo = new THREE.BoxGeometry(0.65, 0.28, 0.08);
   function addExitSign(x, floorY, z, rotY = 0) {
-    const sign = new THREE.Mesh(new THREE.BoxGeometry(0.65, 0.28, 0.08), mats.exitSign);
+    const sign = new THREE.Mesh(exitSignGeo, mats.exitSign);
     sign.position.set(x, floorY + 2.8, z);
     sign.rotation.y = rotY;
     mapGroup.add(sign);
-    const light = new THREE.PointLight(0x28ff66, 0.9, 6.8, 1.9);
-    light.position.set(x, floorY + 2.6, z);
-    mapGroup.add(light);
-    sceneLights.push({ light, baseIntensity: 0.9 });
+    addVirtualLight(x, floorY + 2.6, z, 0x28ff66, 1.1, 7.5, 1.7);
   }
 
-  // 教室の机・椅子セット
+  // 教室の机・椅子セット（ジオメトリ共有＋軽量フレームでドローコール＆メモリ大幅削減！）
+  const deskGeos = {
+    top: new THREE.BoxGeometry(0.75, 0.06, 0.52),
+    sideFrame: new THREE.BoxGeometry(0.05, 0.72, 0.48),
+    seat: new THREE.BoxGeometry(0.42, 0.05, 0.42),
+    back: new THREE.BoxGeometry(0.42, 0.38, 0.05)
+  };
   function addDesk(x, floorY, z, rotY = 0, solid = true) {
     const g = new THREE.Group();
-    const top = new THREE.Mesh(new THREE.BoxGeometry(0.75, 0.06, 0.52), mats.woodMid);
+    const top = new THREE.Mesh(deskGeos.top, mats.woodMid);
     top.position.y = 0.72;
     g.add(top);
-    const legGeo = new THREE.BoxGeometry(0.05, 0.72, 0.05);
-    [[-0.33, -0.22], [0.33, -0.22], [-0.33, 0.22], [0.33, 0.22]].forEach(([lx, lz]) => {
-      const leg = new THREE.Mesh(legGeo, mats.metalDark);
-      leg.position.set(lx, 0.36, lz);
-      g.add(leg);
-    });
+    const legL = new THREE.Mesh(deskGeos.sideFrame, mats.metalDark);
+    legL.position.set(-0.33, 0.36, 0);
+    g.add(legL);
+    const legR = new THREE.Mesh(deskGeos.sideFrame, mats.metalDark);
+    legR.position.set(0.33, 0.36, 0);
+    g.add(legR);
     // 椅子
-    const seat = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.05, 0.42), mats.woodDark);
+    const seat = new THREE.Mesh(deskGeos.seat, mats.woodDark);
     seat.position.set(0, 0.42, 0.42);
     g.add(seat);
-    const back = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.38, 0.05), mats.woodDark);
+    const back = new THREE.Mesh(deskGeos.back, mats.woodDark);
     back.position.set(0, 0.65, 0.61);
     g.add(back);
 
@@ -528,8 +556,8 @@ export function buildSchoolMap(scene, textures) {
   const starMat = new THREE.PointsMaterial({ color: 0xcce0ff, size: 0.35, transparent: true, opacity: 0.75, fog: false });
   mapGroup.add(new THREE.Points(starGeo, starMat));
 
-  // 校舎内を漂う微細な埃パーティクル（光の中でフワフワ舞う空気感！）
-  const dustCount = 460;
+  // 校舎内を漂う微細な埃パーティクル（軽量180個）
+  const dustCount = 180;
   const dustPos = new Float32Array(dustCount * 3);
   for (let i = 0; i < dustCount; i++) {
     dustPos[i * 3] = -21 + Math.random() * 66;
@@ -552,12 +580,10 @@ export function buildSchoolMap(scene, textures) {
   addBox(-2, 2, -0.15, 0.45, 4.5, 5.3, mats.woodDark, false);
   // 中庭の街灯（ぼんやり青白く光る）
   addBox(-0.1, 0.1, -0.15, 4.2, 1.9, 2.1, mats.metalDark, false);
-  const yardLamp = new THREE.Mesh(new THREE.SphereGeometry(0.24, 14, 14), mats.fluorescentOn);
+  const yardLamp = new THREE.Mesh(new THREE.SphereGeometry(0.24, 10, 10), mats.fluorescentOn);
   yardLamp.position.set(0, 4.25, 2.0);
   mapGroup.add(yardLamp);
-  const yardLight = new THREE.PointLight(0x9bc4f5, 2.4, 26, 1.5);
-  yardLight.position.set(0, 4.0, 2.0);
-  mapGroup.add(yardLight);
+  addVirtualLight(0, 4.0, 2.0, 0x9bc4f5, 2.4, 24, 1.5);
 
   // 中庭の木（少し滑らかな多層ローポリ）
   [[-5.5, 8.5], [5.8, 10.5], [-4.5, -1.5]].forEach(([tx, tz]) => {
@@ -895,10 +921,7 @@ export function buildSchoolMap(scene, textures) {
   rulerGroup.position.set(-1.44, 4.02, -16.22);
   rulerGroup.rotation.x = -0.18;
   mapGroup.add(rulerGroup);
-  const rulerLight = new THREE.PointLight(0xffd26a, 0.85, 4.2);
-  rulerLight.position.set(-1.0, 4.55, -15.85);
-  mapGroup.add(rulerLight);
-  sceneLights.push({ light: rulerLight, baseIntensity: 0.85 });
+  const rulerLight = addVirtualLight(-1.0, 4.55, -15.85, 0xffd26a, 1.15, 5.0, 1.5);
   interactables.push({
     id: 'item_ruler',
     type: 'key_item',
@@ -917,7 +940,7 @@ export function buildSchoolMap(scene, textures) {
 
   // ★ 狂気エンドアイテム②：2年B組の教室の机にある【教室のコンパス】（1行目中央机 Z=-14.4 に同期）
   const compassGroup = new THREE.Group();
-  const cMat = new THREE.MeshStandardMaterial({ color: 0xd0dce6, emissive: 0x1a2835, metalness: 0.85, roughness: 0.2 });
+  const cMat = new THREE.MeshStandardMaterial({ color: 0xd0dce6, emissive: 0x264159, metalness: 0.85, roughness: 0.2 });
   const cLeg1 = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.003, 0.24, 8), cMat);
   cLeg1.position.set(-0.025, 0, 0);
   cLeg1.rotation.z = -0.18;
@@ -931,10 +954,7 @@ export function buildSchoolMap(scene, textures) {
   compassGroup.rotation.x = Math.PI / 2;
   compassGroup.rotation.z = 0.45;
   mapGroup.add(compassGroup);
-  const compassLight = new THREE.PointLight(0xb8e2ff, 0.75, 4.0);
-  compassLight.position.set(9.0, 5.05, -14.4);
-  mapGroup.add(compassLight);
-  sceneLights.push({ light: compassLight, baseIntensity: 0.75 });
+  const compassLight = addVirtualLight(9.0, 5.05, -14.4, 0xb8e2ff, 1.0, 4.8, 1.5);
   interactables.push({
     id: 'item_compass',
     type: 'key_item',
@@ -970,13 +990,11 @@ export function buildSchoolMap(scene, textures) {
   addBox(-2.8, 0.8, 8, 8.82, -15.2, -13.6, mats.woodMid, true);
   const tapeMesh = new THREE.Mesh(
     new THREE.BoxGeometry(0.28, 0.06, 0.18),
-    new THREE.MeshLambertMaterial({ color: 0x2a323b, emissive: 0x162436 })
+    new THREE.MeshLambertMaterial({ color: 0x2a323b, emissive: 0x243b59 })
   );
   tapeMesh.position.set(-1.0, 8.88, -14.3);
   mapGroup.add(tapeMesh);
-  const tapeLight = new THREE.PointLight(0x74b9ff, 0.65, 3.6);
-  tapeLight.position.set(-1.0, 9.2, -14.3);
-  mapGroup.add(tapeLight);
+  const tapeLight = addVirtualLight(-1.0, 9.2, -14.3, 0x74b9ff, 1.0, 4.8, 1.5);
   interactables.push({
     id: 'item_tape',
     type: 'key_item',
@@ -998,7 +1016,7 @@ export function buildSchoolMap(scene, textures) {
   const lampGroup = new THREE.Group();
   const glassBody = new THREE.Mesh(
     new THREE.CylinderGeometry(0.08, 0.11, 0.18, 12),
-    new THREE.MeshStandardMaterial({ color: 0x76c7ff, emissive: 0x164266, transparent: true, opacity: 0.82, roughness: 0.12 })
+    new THREE.MeshStandardMaterial({ color: 0x76c7ff, emissive: 0x205a88, transparent: true, opacity: 0.85, roughness: 0.12 })
   );
   glassBody.position.y = 0.09;
   const metalCap = new THREE.Mesh(
@@ -1014,10 +1032,7 @@ export function buildSchoolMap(scene, textures) {
   lampGroup.add(glassBody, metalCap, wick);
   lampGroup.position.set(9.0, 8.75, -14.4);
   mapGroup.add(lampGroup);
-  const lampLight = new THREE.PointLight(0x6ad4ff, 0.8, 4.0);
-  lampLight.position.set(9.0, 9.15, -14.4);
-  mapGroup.add(lampLight);
-  sceneLights.push({ light: lampLight, baseIntensity: 0.8 });
+  const lampLight = addVirtualLight(9.0, 9.15, -14.4, 0x6ad4ff, 1.05, 5.0, 1.5);
   interactables.push({
     id: 'item_lamp',
     type: 'key_item',
@@ -1047,13 +1062,11 @@ export function buildSchoolMap(scene, textures) {
   addBox(18.5, 20.8, 8, 8.88, -3.5, -1.6, mats.woodDark, true);
   const keyMesh = new THREE.Mesh(
     new THREE.BoxGeometry(0.24, 0.05, 0.11),
-    new THREE.MeshLambertMaterial({ color: 0xd4af37, emissive: 0x4f3b08 })
+    new THREE.MeshLambertMaterial({ color: 0xd4af37, emissive: 0x664d0a })
   );
   keyMesh.position.set(19.6, 8.94, -2.5);
   mapGroup.add(keyMesh);
-  const keyLight = new THREE.PointLight(0xffd36b, 0.72, 3.6);
-  keyLight.position.set(19.6, 9.25, -2.5);
-  mapGroup.add(keyLight);
+  const keyLight = addVirtualLight(19.6, 9.25, -2.5, 0xffd36b, 1.0, 4.8, 1.5);
   interactables.push({
     id: 'item_key',
     type: 'key_item',
@@ -1082,13 +1095,11 @@ export function buildSchoolMap(scene, textures) {
   addBox(43.2, 45.0, 0, 1.4, 4.4, 5.8, mats.woodMid, true);
   const scoreMesh = new THREE.Mesh(
     new THREE.BoxGeometry(0.36, 0.06, 0.28),
-    new THREE.MeshLambertMaterial({ color: 0xe6dec8, emissive: 0x3b1218 })
+    new THREE.MeshLambertMaterial({ color: 0xe6dec8, emissive: 0x521a24 })
   );
   scoreMesh.position.set(42.5, 0.97, 7.3);
   mapGroup.add(scoreMesh);
-  const scoreLight = new THREE.PointLight(0xff7f94, 0.75, 4.0);
-  scoreLight.position.set(42.5, 1.3, 7.3);
-  mapGroup.add(scoreLight);
+  const scoreLight = addVirtualLight(42.5, 1.3, 7.3, 0xff7f94, 1.05, 5.0, 1.5);
   interactables.push({
     id: 'item_score',
     type: 'key_item',
@@ -1126,9 +1137,7 @@ export function buildSchoolMap(scene, textures) {
   const pouchMesh = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.14, 0.3), mats.pouch);
   pouchMesh.position.set(pianoX + 0.35, 5.23, pianoZ + 0.2);
   mapGroup.add(pouchMesh);
-  const pouchLight = new THREE.PointLight(0xff6680, 0.65, 3.8);
-  pouchLight.position.set(pianoX + 0.35, 5.55, pianoZ + 0.2);
-  mapGroup.add(pouchLight);
+  const pouchLight = addVirtualLight(pianoX + 0.35, 5.55, pianoZ + 0.2, 0xff6680, 1.1, 5.2, 1.5);
   interactables.push({
     id: 'forgotten_pouch',
     type: 'pouch',
@@ -1145,9 +1154,8 @@ export function buildSchoolMap(scene, textures) {
   sealedMesh.position.set(44.9, 4 + 1.18, 7.6);
   sealedMesh.rotation.y = -Math.PI / 2;
   mapGroup.add(sealedMesh);
-  const sealedReleaseLight = new THREE.PointLight(0xfff1cf, 0.0, 7.0);
-  sealedReleaseLight.position.set(43.8, 5.4, 7.6);
-  mapGroup.add(sealedReleaseLight);
+  const sealedReleaseLight = addVirtualLight(43.8, 5.4, 7.6, 0xfff1cf, 0.0, 9.0, 1.4);
+  sealedReleaseLight.active = false;
   colliders.push({
     minX: 44.3, maxX: 45.6, minY: 4, maxY: 6.4, minZ: 6.8, maxZ: 8.4
   });
@@ -1370,24 +1378,15 @@ export function buildSchoolMap(scene, textures) {
     new THREE.Vector3(-12, 8, -8)
   ];
 
-  // 蛍光灯の明滅アニメーション＆埃パーティクル＆近距離ライトカリング
+  // 蛍光灯の明滅アニメーション＆固定4灯プール割当（シェーダー再コンパイル完全ゼロ！）
   let dustTime = 0;
+  const topCandidates = [];
   function updateLights(dt, playerPos = null) {
     dustTime += dt;
     dustPoints.position.y = Math.sin(dustTime * 0.45) * 0.14;
     dustPoints.position.x = Math.cos(dustTime * 0.25) * 0.12;
 
-    if (playerPos) {
-      // 遠い階・離れた場所のライトは自動OFFにしてWebGL負荷＆シェーダー上限エラーを完全防止
-      for (const entry of sceneLights) {
-        const dy = Math.abs(entry.light.position.y - (playerPos.y + 2.0));
-        const dxz = Math.hypot(entry.light.position.x - playerPos.x, entry.light.position.z - playerPos.z);
-        entry.light.visible = (dy < 3.8 && dxz < 20.0);
-      }
-    }
-
     for (const f of flickers) {
-      if (!f.light.visible) continue;
       f.timer -= dt;
       if (f.timer <= 0) {
         const roll = Math.random();
@@ -1403,6 +1402,36 @@ export function buildSchoolMap(scene, textures) {
           f.light.intensity = f.baseIntensity;
           if (f.bar.material.emissiveIntensity !== undefined) f.bar.material.emissiveIntensity = 1.45;
           f.timer = 0.4 + Math.random() * 2.2;
+        }
+      }
+    }
+
+    if (playerPos) {
+      topCandidates.length = 0;
+      const py = playerPos.y + 1.5;
+      for (let i = 0; i < virtualLights.length; i++) {
+        const vl = virtualLights[i];
+        if (!vl.active || vl.intensity <= 0.01) continue;
+        const dy = Math.abs(vl.y - py);
+        if (dy > 4.2) continue;
+        const dx = vl.x - playerPos.x;
+        const dz = vl.z - playerPos.z;
+        const dSq = dx * dx + dz * dz + dy * dy * 4;
+        if (dSq > 484) continue; // 22m以内
+        topCandidates.push({ vl, dSq });
+      }
+      topCandidates.sort((a, b) => a.dSq - b.dSq);
+      for (let i = 0; i < LIGHT_POOL_SIZE; i++) {
+        const pl = lightPool[i];
+        if (i < topCandidates.length) {
+          const vl = topCandidates[i].vl;
+          pl.position.set(vl.x, vl.y, vl.z);
+          pl.color.copy(vl.color);
+          pl.intensity = vl.intensity;
+          pl.distance = vl.distance;
+          pl.decay = vl.decay;
+        } else {
+          pl.intensity = 0;
         }
       }
     }

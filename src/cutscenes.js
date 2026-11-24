@@ -90,12 +90,9 @@ function buildLighterProp() {
     new THREE.MeshBasicMaterial({ color: 0xfff5c0 })
   );
   flameCore.position.set(0.01, 0.12, 0);
-  const flameLight = new THREE.PointLight(0xff8c24, 2.2, 4.5);
-  flameLight.position.set(0.01, 0.16, 0.05);
 
-  g.add(body, lid, chimney, flame, flameCore, flameLight);
+  g.add(body, lid, chimney, flame, flameCore);
   g.userData.flame = flame;
-  g.userData.flameLight = flameLight;
   return g;
 }
 
@@ -115,6 +112,11 @@ export class CutsceneDirector {
     this.fxGroup = new THREE.Group();
     this.scene.add(this.fxGroup);
 
+    // 演出用ライトは起動時に1灯だけ常駐させ、途中でnew PointLightしない（途中ロード防止！）
+    this.fxLight = new THREE.PointLight(0xff8c24, 0, 14, 1.4);
+    this.fxLight.position.set(0, -100, 0);
+    this.scene.add(this.fxLight);
+
     this.locker = null;
     this.basePos = new THREE.Vector3();
     this.fwd = new THREE.Vector3();
@@ -122,7 +124,7 @@ export class CutsceneDirector {
     this.enemyOrigin = new THREE.Vector3();
     this.props = {};
     this.particles = [];
-    this.fireLight = null;
+    this.fireLight = this.fxLight;
     this.onComplete = null;
   }
 
@@ -136,7 +138,7 @@ export class CutsceneDirector {
     }
     this.props = {};
     this.particles = [];
-    this.fireLight = null;
+    this.fxLight.intensity = 0;
     this.phaseTriggered.clear();
     this.camera.rotation.z = 0;
     if (this.ui.youAreDeadEl) {
@@ -231,10 +233,11 @@ export class CutsceneDirector {
     this.enemy.group.visible = true;
     this.enemy.group.rotation.set(0, -Math.PI / 2, 0);
 
-    // 温かい成仏の金色ライト＆上昇する光粒子70個
-    this.fireLight = new THREE.PointLight(0xffe9a6, 3.2, 12);
-    this.fireLight.position.copy(this.enemyOrigin).add(new THREE.Vector3(0, 1.5, 0));
-    this.fxGroup.add(this.fireLight);
+    // 温かい成仏の金色ライト（常駐ライトを再利用）＆上昇する光粒子70個
+    this.fxLight.color.setHex(0xffe9a6);
+    this.fxLight.intensity = 3.5;
+    this.fxLight.distance = 14;
+    this.fxLight.position.copy(this.enemyOrigin).add(new THREE.Vector3(0, 1.5, 0));
 
     const orbGeo = new THREE.SphereGeometry(0.055, 6, 6);
     for (let i = 0; i < 70; i++) {
@@ -280,9 +283,10 @@ export class CutsceneDirector {
   }
 
   spawnFireParticles(origin) {
-    this.fireLight = new THREE.PointLight(0xff6214, 7.5, 14, 1.4);
-    this.fireLight.position.copy(origin).add(new THREE.Vector3(0, 1.4, 0));
-    this.fxGroup.add(this.fireLight);
+    this.fxLight.color.setHex(0xff6214);
+    this.fxLight.intensity = 7.5;
+    this.fxLight.distance = 16;
+    this.fxLight.position.copy(origin).add(new THREE.Vector3(0, 1.4, 0));
 
     const geo = new THREE.SphereGeometry(0.16, 7, 7);
     const colors = [0xff2a00, 0xff6e0a, 0xffba1a, 0xfff08a, 0x261d1c];
@@ -379,7 +383,7 @@ export class CutsceneDirector {
 
       this.camera.position.copy(this.basePos);
       this.camera.lookAt(lookPoint);
-      this.flashlight.visible = true;
+      this.flashlight.intensity = 14.0;
       this.flashlight.position.copy(this.camera.position);
       this.flashlightTarget.position.copy(lookPoint);
       return;
@@ -473,7 +477,7 @@ export class CutsceneDirector {
       this.enemy.group.position.y = this.locker.pos.y - 0.14;
       this.camera.position.copy(this.basePos);
       this.camera.lookAt(enemyFace);
-      this.flashlight.visible = true;
+      this.flashlight.intensity = 14.0;
       this.flashlight.position.copy(this.camera.position);
       this.flashlightTarget.position.copy(enemyFace);
       return;
@@ -608,10 +612,14 @@ export class CutsceneDirector {
         .addScaledVector(this.right, 0.14)
         .add(new THREE.Vector3(0, -0.12, 0));
 
-      // ライターの炎をゆらゆら揺らす
+      // ライターの炎をゆらゆら揺らす（常駐fxLightで手元を照らす）
       if (this.props.lighter.userData.flame) {
         this.props.lighter.userData.flame.scale.y = 0.85 + Math.sin(t * 32) * 0.25;
       }
+      this.fxLight.color.setHex(0xff9c33);
+      this.fxLight.intensity = 2.6 + Math.sin(t * 28) * 0.5;
+      this.fxLight.distance = 6.5;
+      this.fxLight.position.copy(this.props.lighter.position).add(new THREE.Vector3(0, 0.14, 0));
 
       if (p < 0.62) {
         this.props.lighter.position.copy(holdPos);
