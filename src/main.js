@@ -1396,7 +1396,7 @@ function animate(now) {
     else d.mesh.position.z = val;
   }
 
-  schoolMap.updateLights(dt);
+  schoolMap.updateLights(dt, player.pos);
 
   if (gameState === 'playing') {
     const pState = updatePlayer(dt);

@@ -36,7 +36,9 @@ export function buildSchoolMap(scene, textures) {
   const lockers = [];       // 隠れられるスチールロッカー
   const interactables = []; // 机・忘れ物・封鎖楽器庫・出口・メモなど
   const flickers = [];      // 明滅する蛍光灯
+  const sceneLights = [];   // 距離カリング対象のPointLight一覧（WebGL安定化＆高速化）
   const stairZones = [];    // 階段の高さ補間ゾーン
+  const matCache = new Map(); // 同一タイリングのマテリアルを再利用してVRAM/コンパイル負荷を激減！
 
   // 共通PBRマテリアル（リアルな質感・光沢・凹凸）
   const mats = {
@@ -116,7 +118,33 @@ export function buildSchoolMap(scene, textures) {
     paper: new THREE.MeshStandardMaterial({ color: 0xe6dfc8, emissive: 0x1a1810, roughness: 0.85 })
   };
 
-  // --- ヘルパー：壁・床・家具（PBR＋ソフトシャドウ対応） ---
+  // 同じタイリング比率のマテリアルをキャッシュ再利用するヘルパー
+  function getTiledMaterial(baseMat, repX, repY) {
+    if (!baseMat.map || (repX === 1 && repY === 1)) return baseMat;
+    const key = `${baseMat.uuid}_${repX}_${repY}`;
+    if (matCache.has(key)) return matCache.get(key);
+    const clonedMat = baseMat.clone();
+    const clonedTex = baseMat.map.clone();
+    clonedTex.needsUpdate = true;
+    clonedTex.repeat.set(repX, repY);
+    clonedMat.map = clonedTex;
+    if (baseMat.roughnessMap) {
+      const rTex = baseMat.roughnessMap.clone();
+      rTex.needsUpdate = true;
+      rTex.repeat.set(repX, repY);
+      clonedMat.roughnessMap = rTex;
+    }
+    if (baseMat.bumpMap) {
+      const bTex = baseMat.bumpMap.clone();
+      bTex.needsUpdate = true;
+      bTex.repeat.set(repX, repY);
+      clonedMat.bumpMap = bTex;
+    }
+    matCache.set(key, clonedMat);
+    return clonedMat;
+  }
+
+  // --- ヘルパー：壁・床・家具（PBR＋ソフトシャドウ対応＋キャッシュ最適化） ---
   function addBox(x1, x2, y1, y2, z1, z2, mat, solid = true, repeatTex = false) {
     const w = Math.abs(x2 - x1);
     const h = Math.abs(y2 - y1);
@@ -125,13 +153,9 @@ export function buildSchoolMap(scene, textures) {
 
     let useMat = mat;
     if (repeatTex && mat.map) {
-      const clonedTex = mat.map.clone();
-      clonedTex.needsUpdate = true;
       const repX = Math.max(1, Math.round(Math.max(w, d) / 3.2));
       const repY = Math.max(1, Math.round(h / 3.2));
-      clonedTex.repeat.set(repX, repY);
-      useMat = mat.clone();
-      useMat.map = clonedTex;
+      useMat = getTiledMaterial(mat, repX, repY);
     }
 
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), useMat);
@@ -156,28 +180,9 @@ export function buildSchoolMap(scene, textures) {
   function addFloorSlab(x1, x2, y, z1, z2, mat) {
     const w = x2 - x1;
     const d = z2 - z1;
-    let m = mat;
-    if (mat.map) {
-      const repX = Math.max(1, Math.round(w / 2.6));
-      const repY = Math.max(1, Math.round(d / 2.6));
-      const tex = mat.map.clone();
-      tex.needsUpdate = true;
-      tex.repeat.set(repX, repY);
-      m = mat.clone();
-      m.map = tex;
-      if (mat.roughnessMap) {
-        const rTex = mat.roughnessMap.clone();
-        rTex.needsUpdate = true;
-        rTex.repeat.set(repX, repY);
-        m.roughnessMap = rTex;
-      }
-      if (mat.bumpMap) {
-        const bTex = mat.bumpMap.clone();
-        bTex.needsUpdate = true;
-        bTex.repeat.set(repX, repY);
-        m.bumpMap = bTex;
-      }
-    }
+    const repX = Math.max(1, Math.round(w / 2.6));
+    const repY = Math.max(1, Math.round(d / 2.6));
+    const m = getTiledMaterial(mat, repX, repY);
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, 0.16, d), m);
     mesh.position.set((x1 + x2) / 2, y - 0.08, (z1 + z2) / 2);
     mesh.receiveShadow = true;
@@ -187,11 +192,9 @@ export function buildSchoolMap(scene, textures) {
   function addCeilingSlab(x1, x2, y, z1, z2) {
     const w = x2 - x1;
     const d = z2 - z1;
-    const tex = textures.ceiling.clone();
-    tex.needsUpdate = true;
-    tex.repeat.set(Math.max(1, Math.round(w / 3)), Math.max(1, Math.round(d / 3)));
-    const m = mats.ceiling.clone();
-    m.map = tex;
+    const repX = Math.max(1, Math.round(w / 3));
+    const repY = Math.max(1, Math.round(d / 3));
+    const m = getTiledMaterial(mats.ceiling, repX, repY);
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, 0.14, d), m);
     mesh.position.set((x1 + x2) / 2, y - 0.07, (z1 + z2) / 2);
     mesh.receiveShadow = true;
@@ -354,6 +357,7 @@ export function buildSchoolMap(scene, textures) {
       const light = new THREE.PointLight(0xbce0ff, mode === 'on' ? 1.55 : 1.25, 13.5, 1.7);
       light.position.set(x, y - 0.28, z);
       mapGroup.add(light);
+      sceneLights.push({ light, baseIntensity: mode === 'on' ? 1.55 : 1.25 });
       if (mode === 'flicker') {
         flickers.push({ light, bar, baseIntensity: 1.35, timer: Math.random() * 2 });
       }
@@ -366,9 +370,10 @@ export function buildSchoolMap(scene, textures) {
     sign.position.set(x, floorY + 2.8, z);
     sign.rotation.y = rotY;
     mapGroup.add(sign);
-    const light = new THREE.PointLight(0x28ff66, 0.75, 6.5, 2.0);
+    const light = new THREE.PointLight(0x28ff66, 0.9, 6.8, 1.9);
     light.position.set(x, floorY + 2.6, z);
     mapGroup.add(light);
+    sceneLights.push({ light, baseIntensity: 0.9 });
   }
 
   // 教室の机・椅子セット
@@ -1276,14 +1281,24 @@ export function buildSchoolMap(scene, textures) {
     new THREE.Vector3(-12, 8, -8)
   ];
 
-  // 蛍光灯の明滅アニメーション＆埃パーティクルの揺らぎ更新
+  // 蛍光灯の明滅アニメーション＆埃パーティクル＆近距離ライトカリング
   let dustTime = 0;
-  function updateLights(dt) {
+  function updateLights(dt, playerPos = null) {
     dustTime += dt;
     dustPoints.position.y = Math.sin(dustTime * 0.45) * 0.14;
     dustPoints.position.x = Math.cos(dustTime * 0.25) * 0.12;
 
+    if (playerPos) {
+      // 遠い階・離れた場所のライトは自動OFFにしてWebGL負荷＆シェーダー上限エラーを完全防止
+      for (const entry of sceneLights) {
+        const dy = Math.abs(entry.light.position.y - (playerPos.y + 2.0));
+        const dxz = Math.hypot(entry.light.position.x - playerPos.x, entry.light.position.z - playerPos.z);
+        entry.light.visible = (dy < 3.8 && dxz < 20.0);
+      }
+    }
+
     for (const f of flickers) {
+      if (!f.light.visible) continue;
       f.timer -= dt;
       if (f.timer <= 0) {
         const roll = Math.random();
