@@ -868,9 +868,78 @@ export function buildSchoolMap(scene, textures) {
     radius: 2.3
   });
 
+  // ★ 狂気エンドアイテム①：2年A組・教卓の下の【大きい三角定規】
+  const rulerGroup = new THREE.Group();
+  const rulerShape = new THREE.Shape();
+  rulerShape.moveTo(0, 0);
+  rulerShape.lineTo(0.85, 0);
+  rulerShape.lineTo(0, 0.62);
+  rulerShape.closePath();
+  const hole = new THREE.Path();
+  hole.moveTo(0.14, 0.12);
+  hole.lineTo(0.48, 0.12);
+  hole.lineTo(0.14, 0.36);
+  hole.closePath();
+  rulerShape.holes.push(hole);
+  const rulerMesh = new THREE.Mesh(
+    new THREE.ExtrudeGeometry(rulerShape, { depth: 0.035, bevelEnabled: false }),
+    new THREE.MeshStandardMaterial({ color: 0xd9a838, emissive: 0x3b2a08, roughness: 0.55 })
+  );
+  rulerGroup.add(rulerMesh);
+  rulerGroup.position.set(-1.42, 4.04, -16.02);
+  rulerGroup.rotation.x = -0.22;
+  mapGroup.add(rulerGroup);
+  const rulerLight = new THREE.PointLight(0xffd26a, 0.65, 3.6);
+  rulerLight.position.set(-1.0, 4.45, -15.85);
+  mapGroup.add(rulerLight);
+  sceneLights.push({ light: rulerLight, baseIntensity: 0.65 });
+  interactables.push({
+    id: 'item_ruler',
+    type: 'key_item',
+    itemKey: 'ruler',
+    label: '教卓の下の大きい三角定規を取る [E]',
+    position: new THREE.Vector3(-1.0, 4.4, -15.9),
+    mesh: rulerGroup,
+    light: rulerLight,
+    radius: 2.6,
+    collected: false
+  });
+
   // --- 2F 2年B組・2年C組 ---
   populateClassroom(4, 14, 4, -18, -10, true);
   populateClassroom(14, 22, 4, 2, 16, true);
+
+  // ★ 狂気エンドアイテム②：2年B組の教室の机にある【教室のコンパス】
+  const compassGroup = new THREE.Group();
+  const cMat = new THREE.MeshStandardMaterial({ color: 0xd0dce6, emissive: 0x1a2835, metalness: 0.85, roughness: 0.2 });
+  const cLeg1 = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.003, 0.24, 8), cMat);
+  cLeg1.position.set(-0.025, 0, 0);
+  cLeg1.rotation.z = -0.18;
+  const cLeg2 = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.003, 0.24, 8), cMat);
+  cLeg2.position.set(0.025, 0, 0);
+  cLeg2.rotation.z = 0.18;
+  const cHead = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.05, 8), cMat);
+  cHead.position.set(0, 0.13, 0);
+  compassGroup.add(cLeg1, cLeg2, cHead);
+  compassGroup.position.set(9.0, 4.78, -13.4);
+  compassGroup.rotation.x = Math.PI / 2;
+  compassGroup.rotation.z = 0.45;
+  mapGroup.add(compassGroup);
+  const compassLight = new THREE.PointLight(0xb8e2ff, 0.65, 3.6);
+  compassLight.position.set(9.0, 5.05, -13.4);
+  mapGroup.add(compassLight);
+  sceneLights.push({ light: compassLight, baseIntensity: 0.65 });
+  interactables.push({
+    id: 'item_compass',
+    type: 'key_item',
+    itemKey: 'compass',
+    label: '教室のコンパスを取る [E]',
+    position: new THREE.Vector3(9.0, 4.85, -13.4),
+    mesh: compassGroup,
+    light: compassLight,
+    radius: 2.5,
+    collected: false
+  });
 
   // --- 2F 放送室：放送卓 ---
   addBox(-13.2, -7.5, 4, 4.95, -16.8, -15.4, mats.metalDark, true);
@@ -918,6 +987,42 @@ export function buildSchoolMap(scene, textures) {
   populateClassroom(4, 14, 8, -18, -10, true);
   populateClassroom(14, 22, 8, 5, 16, true);
   populateClassroom(-22, -14, 8, 5, 16, true);
+
+  // ★ 狂気エンドアイテム③：3F 理科室の【アルコールランプ】
+  const lampGroup = new THREE.Group();
+  const glassBody = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.08, 0.11, 0.18, 12),
+    new THREE.MeshStandardMaterial({ color: 0x76c7ff, emissive: 0x164266, transparent: true, opacity: 0.82, roughness: 0.12 })
+  );
+  glassBody.position.y = 0.09;
+  const metalCap = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.035, 0.045, 0.05, 10),
+    new THREE.MeshStandardMaterial({ color: 0xc2ccd4, metalness: 0.8, roughness: 0.25 })
+  );
+  metalCap.position.y = 0.2;
+  const wick = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.012, 0.012, 0.05, 6),
+    new THREE.MeshStandardMaterial({ color: 0xf2eee2, roughness: 0.9 })
+  );
+  wick.position.y = 0.24;
+  lampGroup.add(glassBody, metalCap, wick);
+  lampGroup.position.set(9.0, 8.75, -13.4);
+  mapGroup.add(lampGroup);
+  const lampLight = new THREE.PointLight(0x6ad4ff, 0.72, 3.8);
+  lampLight.position.set(9.0, 9.15, -13.4);
+  mapGroup.add(lampLight);
+  sceneLights.push({ light: lampLight, baseIntensity: 0.72 });
+  interactables.push({
+    id: 'item_lamp',
+    type: 'key_item',
+    itemKey: 'lamp',
+    label: '理科室のアルコールランプを取る [E]',
+    position: new THREE.Vector3(9.0, 8.9, -13.4),
+    mesh: lampGroup,
+    light: lampLight,
+    radius: 2.5,
+    collected: false
+  });
   // 理科室に不気味な人体模型シルエット（フェイクびっくり用）
   const dummyGroup = new THREE.Group();
   const dBody = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.9, 0.28), new THREE.MeshLambertMaterial({ color: 0x99443d }));

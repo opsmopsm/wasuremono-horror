@@ -149,6 +149,28 @@ html, body {
   transition: opacity 0.2s ease-out;
 }
 
+/* バレた状態でロッカー死 → 真っ赤に染まる YOU ARE DEAD 演出 */
+#you-are-dead-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 18;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at center, rgba(145, 5, 12, 0.72), rgba(75, 0, 4, 0.96));
+  opacity: 0;
+}
+
+.dead-title {
+  font-family: "Times New Roman", "Yu Mincho", serif;
+  font-size: clamp(38px, 8vw, 76px);
+  font-weight: bold;
+  letter-spacing: 0.22em;
+  color: #ff1e27;
+  text-shadow: 0 0 24px rgba(0, 0, 0, 0.95), 0 0 42px rgba(255, 20, 30, 0.85);
+}
+
 .hidden {
   display: none !important;
 }
@@ -387,6 +409,20 @@ html, body {
   font-weight: bold;
 }
 
+.end-badge.unlocked-madness {
+  border-color: #e85d22;
+  background: rgba(112, 26, 12, 0.72);
+  color: #ffd9b8;
+  font-weight: bold;
+}
+
+.inv-slot.madness-slot.owned {
+  border-color: #e85d22;
+  background: rgba(104, 28, 14, 0.72);
+  color: #ffe2c4;
+  box-shadow: 0 0 9px rgba(235, 85, 24, 0.45);
+}
+
 .title-card.true-end {
   border-color: #d4b052;
   box-shadow: 0 0 60px rgba(212, 176, 82, 0.28);
@@ -394,6 +430,15 @@ html, body {
 
 .title-card.true-end .eyebrow {
   color: #e6c66a;
+}
+
+.title-card.madness-end {
+  border-color: #e85d22;
+  box-shadow: 0 0 65px rgba(235, 78, 18, 0.4);
+}
+
+.title-card.madness-end .eyebrow {
+  color: #ff8a4c;
 }
 
 /* 見取り図モーダル */

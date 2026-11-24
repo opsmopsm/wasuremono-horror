@@ -388,6 +388,311 @@ export class HorrorAudio {
     });
   }
 
+  // どうぶつの森／スプラトゥーン風のキャラ別「喋り声」ブリップ音！
+  playVoiceBlip(speaker = '') {
+    if (!this.ctx) return;
+    const now = this.ctx.currentTime;
+
+    // キャラごとの基本周波数・波形・フォルマント風フィルタ設定
+    let baseFreq = 460;
+    let wave = 'triangle';
+    let filterFreq = 1600;
+    let dur = 0.055;
+    let vol = 0.14;
+    let pitchJitter = 120;
+
+    if (speaker.includes('警備員')) {
+      baseFreq = 165;
+      wave = 'sawtooth';
+      filterFreq = 680;
+      dur = 0.065;
+      vol = 0.13;
+      pitchJitter = 45;
+    } else if (speaker.includes('顧問') || speaker.includes('先生')) {
+      baseFreq = 240;
+      wave = 'triangle';
+      filterFreq = 920;
+      dur = 0.06;
+      vol = 0.14;
+      pitchJitter = 60;
+    } else if (speaker.includes('赤いコート') || speaker.includes('カセット')) {
+      baseFreq = 125;
+      wave = 'sawtooth';
+      filterFreq = 520;
+      dur = 0.085;
+      vol = 0.15;
+      pitchJitter = 70;
+    } else if (speaker.includes('シオリ')) {
+      baseFreq = 520;
+      wave = 'sine';
+      filterFreq = 1800;
+      dur = 0.07;
+      vol = 0.12;
+      pitchJitter = 95;
+    } else if (speaker.includes('調査')) {
+      baseFreq = 340;
+      wave = 'sine';
+      filterFreq = 1100;
+      dur = 0.035;
+      vol = 0.08;
+      pitchJitter = 30;
+    } else {
+      // 美咲（女子高生：スプラ/どう森風の軽快な喋り声）
+      baseFreq = 540;
+      wave = 'triangle';
+      filterFreq = 1900;
+      dur = 0.052;
+      vol = 0.13;
+      pitchJitter = 150;
+    }
+
+    const f0 = baseFreq + (Math.random() - 0.5) * pitchJitter;
+    const f1 = f0 * (0.86 + Math.random() * 0.34); // 母音っぽいピッチ揺らぎ
+
+    const osc = this.ctx.createOscillator();
+    osc.type = wave;
+    osc.frequency.setValueAtTime(f0, now);
+    osc.frequency.exponentialRampToValueAtTime(Math.max(55, f1), now + dur);
+
+    const filter = this.ctx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.value = filterFreq + (Math.random() - 0.5) * 350;
+    filter.Q.value = 2.6;
+
+    const gain = this.ctx.createGain();
+    gain.gain.setValueAtTime(0.001, now);
+    gain.gain.linearRampToValueAtTime(vol, now + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + dur);
+
+    osc.connect(filter);
+    filter.connect(gain);
+    gain.connect(this.master);
+    osc.start(now);
+    osc.stop(now + dur + 0.015);
+  }
+
+  // ロッカーをガタンッ！と激しく叩く音
+  playLockerBang() {
+    if (!this.ctx) return;
+    const now = this.ctx.currentTime;
+    // 金属の共鳴
+    const osc = this.ctx.createOscillator();
+    const og = this.ctx.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(195, now);
+    osc.frequency.exponentialRampToValueAtTime(52, now + 0.22);
+    og.gain.setValueAtTime(0.45, now);
+    og.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+    osc.connect(og);
+    og.connect(this.master);
+    osc.start(now);
+    osc.stop(now + 0.26);
+
+    // 衝撃ノイズ
+    const dur = 0.18;
+    const buf = this.ctx.createBuffer(1, Math.floor(this.ctx.sampleRate * dur), this.ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.exp(-i / (d.length * 0.22));
+    const src = this.ctx.createBufferSource();
+    src.buffer = buf;
+    const bp = this.ctx.createBiquadFilter();
+    bp.type = 'bandpass';
+    bp.frequency.value = 720;
+    const g = this.ctx.createGain();
+    g.gain.value = 0.5;
+    src.connect(bp);
+    bp.connect(g);
+    g.connect(this.master);
+    src.start(now);
+  }
+
+  // YOU ARE DEAD の重厚な暗転音
+  playYouAreDead() {
+    if (!this.ctx) return;
+    const now = this.ctx.currentTime;
+    [55, 61.74, 110].forEach((f) => {
+      const osc = this.ctx.createOscillator();
+      const g = this.ctx.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(f, now);
+      osc.frequency.exponentialRampToValueAtTime(f * 0.72, now + 2.4);
+      const lp = this.ctx.createBiquadFilter();
+      lp.type = 'lowpass';
+      lp.frequency.value = 260;
+      g.gain.setValueAtTime(0.28, now);
+      g.gain.exponentialRampToValueAtTime(0.001, now + 2.5);
+      osc.connect(lp);
+      lp.connect(g);
+      g.connect(this.master);
+      osc.start(now);
+      osc.stop(now + 2.6);
+    });
+  }
+
+  // 狂気エンド：コンパスで目を刺す音＋赤い女の絶叫
+  playCompassStab() {
+    if (!this.ctx) return;
+    const now = this.ctx.currentTime;
+    // グサッ！
+    const dur = 0.16;
+    const buf = this.ctx.createBuffer(1, Math.floor(this.ctx.sampleRate * dur), this.ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.exp(-i / (d.length * 0.3));
+    const src = this.ctx.createBufferSource();
+    src.buffer = buf;
+    const g = this.ctx.createGain();
+    g.gain.value = 0.52;
+    src.connect(g);
+    g.connect(this.master);
+    src.start(now);
+
+    // 女の絶叫スクリーチ
+    [520, 740, 1080].forEach((f) => {
+      const osc = this.ctx.createOscillator();
+      const sg = this.ctx.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(f, now + 0.05);
+      osc.frequency.exponentialRampToValueAtTime(f * 0.45, now + 0.95);
+      sg.gain.setValueAtTime(0.16, now + 0.05);
+      sg.gain.exponentialRampToValueAtTime(0.001, now + 1.0);
+      osc.connect(sg);
+      sg.connect(this.master);
+      osc.start(now + 0.05);
+      osc.stop(now + 1.05);
+    });
+  }
+
+  // 狂気エンド：大きい三角定規で攻撃をガキィン！とガード
+  playRulerGuard() {
+    if (!this.ctx) return;
+    const now = this.ctx.currentTime;
+    [320, 640, 1280].forEach((f) => {
+      const osc = this.ctx.createOscillator();
+      const g = this.ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(f, now);
+      osc.frequency.exponentialRampToValueAtTime(f * 0.65, now + 0.25);
+      g.gain.setValueAtTime(0.28, now);
+      g.gain.exponentialRampToValueAtTime(0.001, now + 0.28);
+      osc.connect(g);
+      g.connect(this.master);
+      osc.start(now);
+      osc.stop(now + 0.3);
+    });
+  }
+
+  // 狂気エンド：アルコールランプをぶっかけて割れる音
+  playGlassSplash() {
+    if (!this.ctx) return;
+    const now = this.ctx.currentTime;
+    // ガラス粉砕の高周波ノイズ
+    const dur = 0.45;
+    const buf = this.ctx.createBuffer(1, Math.floor(this.ctx.sampleRate * dur), this.ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.exp(-i / (d.length * 0.35));
+    const src = this.ctx.createBufferSource();
+    src.buffer = buf;
+    const hp = this.ctx.createBiquadFilter();
+    hp.type = 'highpass';
+    hp.frequency.value = 2200;
+    const g = this.ctx.createGain();
+    g.gain.value = 0.48;
+    src.connect(hp);
+    hp.connect(g);
+    g.connect(this.master);
+    src.start(now);
+
+    // ガラス片チリンチリン
+    [2800, 3650, 4400, 3150].forEach((f, idx) => {
+      const osc = this.ctx.createOscillator();
+      const cg = this.ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = f;
+      cg.gain.setValueAtTime(0.14, now + idx * 0.04);
+      cg.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.04 + 0.14);
+      osc.connect(cg);
+      cg.connect(this.master);
+      osc.start(now + idx * 0.04);
+      osc.stop(now + idx * 0.04 + 0.16);
+    });
+  }
+
+  // 狂気エンド：タバコ用ライターのカチンッ・シュボッ！
+  playLighterClick() {
+    if (!this.ctx) return;
+    const now = this.ctx.currentTime;
+    // カチン（金属蓋）
+    const c1 = this.ctx.createOscillator();
+    const g1 = this.ctx.createGain();
+    c1.type = 'square';
+    c1.frequency.setValueAtTime(2400, now);
+    c1.frequency.exponentialRampToValueAtTime(900, now + 0.035);
+    g1.gain.setValueAtTime(0.24, now);
+    g1.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
+    c1.connect(g1);
+    g1.connect(this.master);
+    c1.start(now);
+    c1.stop(now + 0.045);
+
+    // シュボッ（着火）
+    const dur = 0.22;
+    const buf = this.ctx.createBuffer(1, Math.floor(this.ctx.sampleRate * dur), this.ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.sin((i / d.length) * Math.PI);
+    const src = this.ctx.createBufferSource();
+    src.buffer = buf;
+    const bp = this.ctx.createBiquadFilter();
+    bp.type = 'bandpass';
+    bp.frequency.value = 950;
+    const g2 = this.ctx.createGain();
+    g2.gain.value = 0.35;
+    src.connect(bp);
+    bp.connect(g2);
+    g2.connect(this.master);
+    src.start(now + 0.18);
+  }
+
+  // 狂気エンド：ボォォォッ！！炎上轟音＋パチパチ燃焼
+  playFireIgnite() {
+    if (!this.ctx) return;
+    const now = this.ctx.currentTime;
+    const dur = 3.2;
+    const buf = this.ctx.createBuffer(1, Math.floor(this.ctx.sampleRate * dur), this.ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) {
+      const t = i / d.length;
+      const env = t < 0.08 ? t / 0.08 : Math.exp(-(t - 0.08) * 1.4);
+      d[i] = (Math.random() * 2 - 1) * env;
+    }
+    const src = this.ctx.createBufferSource();
+    src.buffer = buf;
+    const lp = this.ctx.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.setValueAtTime(950, now);
+    lp.frequency.exponentialRampToValueAtTime(320, now + dur);
+    const g = this.ctx.createGain();
+    g.gain.value = 0.65;
+    src.connect(lp);
+    lp.connect(g);
+    g.connect(this.master);
+    src.start(now);
+
+    // 燃えながらの断末魔
+    [420, 610, 880].forEach((f) => {
+      const osc = this.ctx.createOscillator();
+      const sg = this.ctx.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(f, now + 0.12);
+      osc.frequency.exponentialRampToValueAtTime(f * 0.32, now + 1.8);
+      sg.gain.setValueAtTime(0.14, now + 0.12);
+      sg.gain.exponentialRampToValueAtTime(0.001, now + 1.9);
+      osc.connect(sg);
+      sg.connect(this.master);
+      osc.start(now + 0.12);
+      osc.stop(now + 1.95);
+    });
+  }
+
   // メトロノーム接近音（＋近いと不気味な低音鼓動）
   playMetronomeTick(intensity) {
     if (!this.ctx) return;

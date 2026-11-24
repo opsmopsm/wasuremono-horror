@@ -4,6 +4,7 @@ import { HorrorAudio } from './audio.js';
 import { buildSchoolMap } from './schoolMap.js';
 import { RedCoatWoman } from './enemy.js';
 import { SchoolNPCs } from './npcs.js';
+import { CutsceneDirector } from './cutscenes.js';
 
 // =========================================================================
 // DOM要素
@@ -40,6 +41,7 @@ const speakerNameEl = document.getElementById('speaker-name');
 const dialogueTextEl = document.getElementById('dialogue-text');
 const dangerVignette = document.getElementById('danger-vignette');
 const flashOverlay = document.getElementById('flash-overlay');
+const youAreDeadOverlay = document.getElementById('you-are-dead-overlay');
 const lockerSlitOverlay = document.getElementById('locker-slit-overlay');
 const mapModal = document.getElementById('map-modal');
 const mapCanvas = document.getElementById('map-canvas');
@@ -69,17 +71,21 @@ const invSlots = {
   pouch: document.getElementById('inv-pouch'),
   tape: document.getElementById('inv-tape'),
   key: document.getElementById('inv-key'),
-  score: document.getElementById('inv-score')
+  score: document.getElementById('inv-score'),
+  compass: document.getElementById('inv-compass'),
+  ruler: document.getElementById('inv-ruler'),
+  lamp: document.getElementById('inv-lamp')
 };
 
 // =========================================================================
-// エンディング達成図鑑（localStorage 永続化）
+// エンディング達成図鑑（全5エンド・localStorage 永続化）
 // =========================================================================
 const ENDING_DEFS = [
   { id: 'bad1', label: 'BAD① 新しい忘れ物', kind: 'bad' },
   { id: 'bad2', label: 'BAD② 明日でいいか', kind: 'bad' },
   { id: 'normal', label: 'NORMAL 逃げ切った夜', kind: 'normal' },
-  { id: 'true', label: 'TRUE もう、忘れない', kind: 'true' }
+  { id: 'true', label: 'TRUE 成仏', kind: 'true' },
+  { id: 'madness', label: '狂気END 焼却', kind: 'madness' }
 ];
 const STORAGE_KEY = 'wasuremono_unlocked_endings_v1';
 
@@ -235,15 +241,29 @@ const story = {
     pouch: false,
     tape: false,
     key: false,
-    score: false
+    score: false,
+    compass: false,
+    ruler: false,
+    lamp: false
   },
   notesFound: new Set()
 };
+
+function hasMadnessSet() {
+  return story.items.compass && story.items.ruler && story.items.lamp;
+}
 
 let dialogueQueue = [];
 let subtitleTimer = 0;
 let jumpscareTimer = 0;
 let pendingBadEnding = 'bad1';
+
+// タイプライター表示＋どうぶつの森／スプラトゥーン風ボイス用ステート
+let typingFullText = '';
+let typingIndex = 0;
+let typingSpeaker = '';
+let typingCharTimer = 0;
+let typingVoiceSkip = 0;
 
 function updateInventoryHUD() {
   for (const [k, el] of Object.entries(invSlots)) {
@@ -254,12 +274,14 @@ function updateInventoryHUD() {
 function updateObjectiveText() {
   if (story.ghostReleased) {
     objectiveLabel.textContent = story.items.pouch
-      ? '目標: 静かになった校舎の1F出口から外へ出る（TRUE END）'
+      ? '目標: 成仏を見届けた。静かな1F出口から外へ出る（TRUE END）'
       : '目標: 音楽室で自分の忘れ物ポーチを取って1F出口へ向かう';
+  } else if (hasMadnessSet()) {
+    objectiveLabel.textContent = '★狂気反撃準備完了！ 赤い女に見つかった状態でロッカーへ隠れろ…！';
   } else if (story.items.key && story.items.score) {
     objectiveLabel.textContent = '目標: 別館2F 音楽準備室の「封鎖された楽器収納庫」を開放する！';
   } else if (story.items.pouch) {
-    objectiveLabel.textContent = '目標: 1F出口から脱出する（または真相の鍵と楽譜を探して楽器庫を開放する）';
+    objectiveLabel.textContent = '目標: 1F出口から脱出（または成仏の鍵／狂気アイテム3種を探す）';
   } else if (story.checkedDesk) {
     objectiveLabel.textContent = '目標: 東棟2F渡り廊下から別館2Fの音楽室へ行く';
   } else {
@@ -281,10 +303,47 @@ function queueDialogues(entries) {
 
 function applyDialogue(speaker, text, duration, isGhost) {
   speakerNameEl.textContent = speaker ? `【${speaker}】` : '';
-  dialogueTextEl.textContent = text;
+  typingSpeaker = speaker || '美咲';
+  typingFullText = text || '';
+  typingIndex = 0;
+  typingCharTimer = 0;
+  typingVoiceSkip = 0;
+  dialogueTextEl.textContent = '';
   subtitleEl.classList.toggle('ghost-voice', !!isGhost);
   subtitleEl.classList.add('visible');
-  subtitleTimer = duration;
+  subtitleTimer = Math.max(duration, typingFullText.length * 0.045 + 1.4);
+}
+
+function updateDialogueTyping(dt) {
+  if (typingIndex < typingFullText.length) {
+    typingCharTimer -= dt;
+    while (typingCharTimer <= 0 && typingIndex < typingFullText.length) {
+      const ch = typingFullText[typingIndex];
+      typingIndex++;
+      dialogueTextEl.textContent = typingFullText.slice(0, typingIndex);
+      typingCharTimer += 0.038;
+
+      // 句読点・括弧・空白以外の文字でキャラ別喋り声ブリップを鳴らす！
+      if (!/[\s「」『』、。…・！？!?（）()【】—\-]/.test(ch)) {
+        typingVoiceSkip++;
+        if (typingVoiceSkip % 2 === 1) {
+          audio.playVoiceBlip(typingSpeaker);
+        }
+      }
+    }
+  }
+
+  if (subtitleTimer > 0) {
+    subtitleTimer -= dt;
+    if (subtitleTimer <= 0) {
+      if (dialogueQueue.length > 0) {
+        const next = dialogueQueue.shift();
+        applyDialogue(next.speaker, next.text, next.duration || 4.8, !!next.isGhost);
+      } else {
+        subtitleEl.classList.remove('visible');
+      }
+    }
+  }
 }
 
 function triggerFlash(color = 'rgba(255,255,255,0.45)', ms = 180) {
@@ -295,6 +354,22 @@ function triggerFlash(color = 'rgba(255,255,255,0.45)', ms = 180) {
   }, ms);
 }
 
+// リアルタイム3Dムービー演出ディレクター
+const cutscenes = new CutsceneDirector(
+  scene,
+  camera,
+  flashlight,
+  flashlightTarget,
+  enemy,
+  audio,
+  {
+    lockerSlitOverlay,
+    youAreDeadEl: youAreDeadOverlay,
+    showDialogue,
+    triggerFlash
+  }
+);
+
 // =========================================================================
 // ロッカーに隠れる／出るシステム（隙間から外が見える！）
 // =========================================================================
@@ -303,11 +378,13 @@ function enterLocker(locker) {
 
   const enemyDist = enemy.position.distanceTo(player.pos);
   const sameFloor = Math.abs(enemy.position.y - player.pos.y) < 1.8;
+  // 狂気3アイテムが揃っているときは、少し離れていても見つけさせて反撃ムービーに入りやすくする！
+  const seenDist = hasMadnessSet() ? 11.5 : 4.5;
   player.seenHiding = (
     enemy.active &&
-    enemy.state === 'chase' &&
+    (enemy.state === 'chase' || hasMadnessSet()) &&
     sameFloor &&
-    enemyDist < 4.5 &&
+    enemyDist < seenDist &&
     enemy.hasLineOfSight(player.pos, schoolMap.colliders)
   );
 
@@ -326,7 +403,11 @@ function enterLocker(locker) {
   audio.playLockerToggle(true);
 
   if (player.seenHiding) {
-    showDialogue('美咲', '「っ、見られた！？ まずい、こっちへ来てる……！」', 4.0);
+    if (hasMadnessSet()) {
+      showDialogue('美咲', '「……来た。こっちへ来なよ……準備はできてる。」', 3.5);
+    } else {
+      showDialogue('美咲', '「っ、見られた！？ まずい、こっちへ来てる……！」', 4.0);
+    }
   } else if (!story.hidFirstTime) {
     story.hidFirstTime = true;
     showDialogue('美咲', '「息を殺さないと……ロッカーの隙間から外が見える……！」', 4.5);
@@ -358,6 +439,7 @@ function exitLocker(silent = false) {
 // リセット＆起動
 // =========================================================================
 function resetGame() {
+  cutscenes.cleanup();
   if (player.hiding) exitLocker(true);
 
   player.pos.set(12, 0, 13.5);
@@ -379,7 +461,7 @@ function resetGame() {
   story.sealedWarnCount = 0;
   story.tapePlayed = false;
   story.ghostReleased = false;
-  story.items = { pouch: false, tape: false, key: false, score: false };
+  story.items = { pouch: false, tape: false, key: false, score: false, compass: false, ruler: false, lamp: false };
   story.notesFound.clear();
 
   // 夜の暗闇に戻す
@@ -1086,6 +1168,24 @@ function tryInteract() {
           duration: 5.2
         }
       ]);
+    } else if (item.itemKey === 'compass' || item.itemKey === 'ruler' || item.itemKey === 'lamp') {
+      const names = {
+        compass: '【教室のコンパス】を手に入れた。金属の針が鋭く光っている……',
+        ruler: '【大きい三角定規】を手に入れた。教卓の下にあった分厚い木製定規だ。盾になりそう……',
+        lamp: '【理科室のアルコールランプ】を手に入れた。中には可燃性のアルコールがたっぷり入っている……'
+      };
+      if (hasMadnessSet()) {
+        queueDialogues([
+          { speaker: '調査', text: names[item.itemKey], duration: 4.0 },
+          {
+            speaker: '美咲',
+            text: '「コンパス、大きい三角定規、アルコールランプ……全部揃った！ ポーチのタバコ用ライターもある……赤い女に見つかってロッカーへ誘い込めば、やり返せる！」',
+            duration: 6.2
+          }
+        ]);
+      } else {
+        showDialogue('調査', names[item.itemKey], 4.5);
+      }
     }
     return;
   }
@@ -1116,9 +1216,8 @@ function tryInteract() {
     }
 
     if (story.items.key && story.items.score) {
-      // ★ TRUE END クライマックス：封印を解き、赤いコートの女（シオリ）を解放！
+      // ★ TRUE END クライマックス：封印を解き、赤いコートの女（シオリ）が光の粒となって成仏する3D演出！
       story.ghostReleased = true;
-      enemy.deactivate();
       dangerVignette.style.opacity = '0';
       audio.playTrueRelease();
       triggerFlash('rgba(255, 248, 220, 0.85)', 700);
@@ -1131,10 +1230,17 @@ function tryInteract() {
 
       updateObjectiveText();
       queueDialogues([
-        { speaker: '美咲', text: '「鍵を開けて、打ち付けられた板を外した……！ ほら、探していた楽譜とリードだよ、シオリさん！」', duration: 4.8 },
-        { speaker: 'シオリ', text: '「……やっと、開けてくれた……もう、暗くない……ありがとう……」', duration: 4.8 },
-        { speaker: '美咲', text: '「……空気が軽くなった。もう追いかけられる気配もしない……1Fの出口から、由香の待つ校門へ帰ろう！」', duration: 5.5 }
+        { speaker: '美咲', text: '「鍵を開けて板を外したよ……ほら、探していた楽譜とリードだよ、シオリさん！」', duration: 3.8 },
+        { speaker: 'シオリ', text: '「……やっと、開けてくれた……もう、暗くない……ありがとう……」（穏やかな光となって成仏していく）', duration: 4.8 }
       ]);
+
+      gameState = 'cutscene';
+      promptEl.classList.remove('visible');
+      mapModal.classList.add('hidden');
+      cutscenes.startTrueReleaseMovie(item.position.clone(), () => {
+        gameState = 'playing';
+        showDialogue('美咲', '「……成仏してくれたんだね。もう追いかけられる気配もない。1Fの出口から、由香の待つ校門へ帰ろう！」', 5.5);
+      });
       return;
     }
 
@@ -1201,7 +1307,7 @@ function tryInteract() {
     gameState = 'clear';
     exitLockSafe();
     enemy.deactivate();
-    clearCard.classList.remove('true-end');
+    clearCard.classList.remove('true-end', 'madness-end');
 
     if (story.ghostReleased) {
       // ★ TRUE END『もう、忘れない』
@@ -1477,8 +1583,47 @@ function animate(now) {
         showDialogue('赤いコートの女', line, 3.8, true);
       },
       onLockerBreach: () => {
-        audio.playLockerToggle(false);
-        triggerJumpscare('「……ソコニ、イルノ、ミテタヨ……！」', 'breach');
+        const locker = player.hidingLocker;
+        if (!locker) {
+          triggerJumpscare('「……ソコニ、イルノ、ミテタヨ……！」', 'breach');
+          return;
+        }
+        promptEl.classList.remove('visible');
+        mapModal.classList.add('hidden');
+        gameState = 'cutscene';
+        exitLockSafe();
+
+        if (hasMadnessSet()) {
+          // ★ 狂気エンド：リアルタイム3Dフルアクションムービー再生！！
+          cutscenes.startMadnessMovie(locker, () => {
+            if (player.hiding) exitLocker(true);
+            gameState = 'clear';
+            enemy.deactivate();
+            unlockEnding('madness');
+            clearCard.classList.remove('true-end');
+            clearCard.classList.add('madness-end');
+            clearEyebrow.textContent = 'MADNESS END — 狂気の焼却';
+            clearTitle.textContent = '燃え尽きた赤い女';
+            clearText.textContent =
+              'ロッカーの隙間からコンパスで目を貫き、飛び出して特大三角定規で一撃を受け止めた。\n' +
+              '理科室のアルコールランプを浴びせ、ポーチに忍ばせていたタバコ用ライターで着火――。\n\n' +
+              '炎に包まれて崩れ落ちていく赤いコートと赤い帽子の女を、美咲はただ冷たい目で見下ろしていた。\n' +
+              '……夜の校舎で一番恐ろしかったのは、本当はどちらだったのだろうか。';
+            clearScreen.classList.remove('hidden');
+          });
+        } else {
+          // ★ ロッカーバレ恐怖3D演出 → 隙間から覗く→ガタンガタン→扉全開→倒されて真っ赤→ YOU ARE DEAD！
+          cutscenes.startLockerDeath(locker, () => {
+            showBadEnding(
+              'bad1',
+              'BAD END ① — YOU ARE DEAD',
+              'YOU ARE DEAD',
+              'ロッカーの隙間から赤いコートの女に覗き込まれ、扉をガタンガタンと激しく揺らされた末にこじ開けられた。\n' +
+              '床へ叩きつけられ、視界が真っ赤に染まっていく……。\n' +
+              '翌朝、誰もいない教室には美咲のポーチだけがぽつんと残されていた――。'
+            );
+          });
+        }
       },
       onOpenDoor: () => {
         audio.playDoorSlide();
@@ -1505,18 +1650,12 @@ function animate(now) {
       dangerVignette.style.opacity = '0';
     }
 
-    if (subtitleTimer > 0) {
-      subtitleTimer -= dt;
-      if (subtitleTimer <= 0) {
-        if (dialogueQueue.length > 0) {
-          const next = dialogueQueue.shift();
-          applyDialogue(next.speaker, next.text, next.duration || 4.8, !!next.isGhost);
-        } else {
-          subtitleEl.classList.remove('visible');
-        }
-      }
-    }
+    updateDialogueTyping(dt);
+  } else if (gameState === 'cutscene') {
+    cutscenes.update(dt);
+    updateDialogueTyping(dt);
   } else if (gameState === 'jumpscare') {
+    updateDialogueTyping(dt);
     jumpscareTimer -= dt;
     const facePos = enemy.position.clone().add(new THREE.Vector3(0, 1.72, 0));
     const frontDir = new THREE.Vector3(
