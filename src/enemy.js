@@ -116,9 +116,9 @@ export class RedCoatWoman {
     this.lastCheckPos = this.position.clone();
     this.animTime = 0;
 
-    // ちょうど良く怖くて逃げ切れる速度バランス！
-    this.speedPatrol = 1.75;
-    this.speedChase = 3.45; // プレイヤー歩行(3.25)よりやや速く、ダッシュ(5.7)で余裕で振り切れる
+    // 本格ホラーの緊張感ある速度バランス（歩きだと確実に追いつかれ、ダッシュ＆隠れが必須！）
+    this.speedPatrol = 2.55;
+    this.speedChase = 4.65; // プレイヤー歩行(3.15)より遥かに速く、全力ダッシュ(5.45)＋ロッカー回避が必要
 
     this.group = this.buildModel(textures);
     this.group.position.copy(this.position);
@@ -411,13 +411,13 @@ export class RedCoatWoman {
       }
     }
 
-    // 通常時：65%で「プレイヤーと同じ階の中距離（8m〜26m）」を選んで程よく遭遇する！
-    if (Math.random() < 0.65) {
+    // 通常時：80%で「プレイヤーと同じ階の中距離（7m〜24m）」を選んでじわじわプレッシャーをかける！
+    if (Math.random() < 0.80) {
       const sameFloorMid = pool.filter((idx) => {
         const p = this.nav.nodes[idx].pos;
         const dy = Math.abs(p.y - playerPos.y);
         const d = p.distanceTo(playerPos);
-        return dy < 1.8 && d >= 8.0 && d <= 26.0;
+        return dy < 1.8 && d >= 7.0 && d <= 24.0;
       });
       if (sameFloorMid.length > 0) {
         return sameFloorMid[Math.floor(Math.random() * sameFloorMid.length)];
@@ -456,14 +456,14 @@ export class RedCoatWoman {
         return dist3D;
       }
 
-      // 見られずに隠れた → 追跡を解除して、遠くの廊下へ去っていく！
+      // 見られずに隠れた → 追跡を解除して少し離れる（長居は危険！）
       if (this.state === 'chase') {
         this.state = 'patrol';
-        this.retreatCooldown = 14.0;
+        this.retreatCooldown = 5.5;
         const startN = this.findNearestNode(this.position, colliders);
         const farN = this.pickPatrolTarget(playerPos, true);
         this.currentPath = this.computePath(startN, farN);
-        this.pathTimer = 10.0;
+        this.pathTimer = 6.0;
       }
 
       this.whisperTimer -= dt;
@@ -483,34 +483,41 @@ export class RedCoatWoman {
       return dist3D;
     }
 
-    // 2. 通常時の索敵＆追跡（理不尽のない視界距離とクールダウン）
-    let detectRange = playerState.flashlightOn ? 11.5 : 5.0;
+    // 2. 通常時の索敵＆追跡（ライトONは遠距離からバレ、走ると足音でも気づかれる！）
+    let detectRange = playerState.flashlightOn ? 17.5 : 7.8;
     if (playerState.crouching) detectRange *= 0.55;
-    if (playerState.running) detectRange += 2.5;
+    if (playerState.running) detectRange += 4.5;
 
     const canSee = sameFloor && dist3D < detectRange && this.hasLineOfSight(playerPos, colliders);
+    const heardRunning = sameFloor && playerState.running && dist3D < 11.5;
 
     if (canSee) {
       if (this.state !== 'chase') {
         this.state = 'chase';
-        this.spotDelayTimer = 0.45; // 発見から逃げ出すための0.45秒の猶予
+        this.spotDelayTimer = 0.18;
         if (callbacks.onSpot) callbacks.onSpot();
       }
-      this.loseSightTimer = 3.2; // 角を曲がって少し走ればちゃんと撒ける！
+      this.loseSightTimer = 5.5; // しつこく追ってくる！しっかり撒いて隠れる必要あり
+    } else if (heardRunning && this.state !== 'chase') {
+      // 近くで走った足音を聞きつけて詰め寄ってくる！
+      this.state = 'chase';
+      this.spotDelayTimer = 0.25;
+      this.loseSightTimer = 4.2;
+      if (callbacks.onSpot) callbacks.onSpot();
     } else if (this.state === 'chase') {
       this.loseSightTimer -= dt;
       if (this.loseSightTimer <= 0) {
         this.state = 'patrol';
-        this.retreatCooldown = 12.0; // 撒いたあとはしばらく遠くへ離れる
+        this.retreatCooldown = 5.5; // 撒いてもすぐ再捜索してくる
         const startN = this.findNearestNode(this.position, colliders);
         const farN = this.pickPatrolTarget(playerPos, true);
         this.currentPath = this.computePath(startN, farN);
-        this.pathTimer = 9.0;
+        this.pathTimer = 6.0;
       }
     }
 
-    // 捕獲判定（壁越し捕獲なし＆距離0.92mで理不尽なし）
-    if (dist3D < 0.92 && sameFloor && this.hasLineOfSight(playerPos, colliders)) {
+    // 捕獲判定（壁越し捕獲なし＆距離1.18mでスリル満点）
+    if (dist3D < 1.18 && sameFloor && this.hasLineOfSight(playerPos, colliders)) {
       if (callbacks.onCatch) callbacks.onCatch();
       return dist3D;
     }

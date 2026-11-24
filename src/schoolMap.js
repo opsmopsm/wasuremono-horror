@@ -243,7 +243,7 @@ export function buildSchoolMap(scene, textures) {
         mapGroup.add(sign);
       }
 
-      // 引き戸の生成
+      // 引き戸の生成（全ドア幅を広めに統一して引っかかりゼロ！）
       if (op.hasDoor) {
         const doorW = op.width - 0.04;
         const doorThick = 0.09;
@@ -272,7 +272,7 @@ export function buildSchoolMap(scene, textures) {
           collider: col,
           axis,
           closedPos: axis === 'x' ? baseX : baseZ,
-          openPos: (axis === 'x' ? baseX : baseZ) + (op.slideDir || 1) * (doorW * 0.85),
+          openPos: (axis === 'x' ? baseX : baseZ) + (op.slideDir || 1) * (doorW * 0.92),
           isOpen: false,
           progress: 0,
           locked: !!op.locked,
@@ -409,7 +409,7 @@ export function buildSchoolMap(scene, textures) {
     }
   }
 
-  // 教室セット（黒板＋並んだ机）
+  // 教室セット（黒板＋並んだ机：ドア前・通路を広々確保！）
   function populateClassroom(x1, x2, floorY, z1, z2, facingNorth = true) {
     // 黒板
     const bbZ = facingNorth ? z1 + 0.2 : z2 - 0.2;
@@ -417,15 +417,20 @@ export function buildSchoolMap(scene, textures) {
     bb.position.set((x1 + x2) / 2, floorY + 1.75, bbZ);
     mapGroup.add(bb);
 
-    // 教卓
-    addBox((x1 + x2) / 2 - 0.5, (x1 + x2) / 2 + 0.5, floorY, floorY + 0.9, bbZ + (facingNorth ? 1.0 : -1.4), bbZ + (facingNorth ? 1.6 : -0.8), mats.woodDark, true);
+    // 教卓（北端壁から1.0mの位置に配置）
+    addBox((x1 + x2) / 2 - 0.5, (x1 + x2) / 2 + 0.5, floorY, floorY + 0.9, bbZ + (facingNorth ? 0.9 : -1.3), bbZ + (facingNorth ? 1.45 : -0.75), mats.woodDark, true);
 
-    // 生徒机（3列×2行）
+    // 生徒机（3列×2行：ドア壁との間を1.8m以上あけてスイスイ通れる！）
+    const roomW = x2 - x1;
+    const roomD = z2 - z1;
     const cx = (x1 + x2) / 2;
-    const cz = (z1 + z2) / 2 + (facingNorth ? 0.6 : -0.6);
+    const colGap = roomW >= 9.5 ? 2.35 : 1.95;
+    const cz = roomD <= 8.5
+      ? (z1 + 3.6) // 北棟教室(Z=-18..-10): 1行目=-14.4, 2行目=-12.6 → ドア壁(-10)まで2m以上の広々通路！
+      : ((z1 + z2) / 2 - 0.8);
     for (let r = 0; r < 2; r++) {
       for (let c = -1; c <= 1; c++) {
-        addDesk(cx + c * 2.1, floorY, cz + r * 1.9, facingNorth ? 0 : Math.PI, true);
+        addDesk(cx + c * colGap, floorY, cz + r * 1.8, facingNorth ? 0 : Math.PI, true);
       }
     }
   }
@@ -658,26 +663,26 @@ export function buildSchoolMap(scene, textures) {
     ][f];
 
     addWallWithOpenings('x', -10, -14, 14, y, mats.wall, [
-      { center: -10, width: 1.5, hasDoor: true, label: northLabels[0], signSide: 1 },
-      { center: -3.5, width: 1.5, hasDoor: true, label: northLabels[1], signSide: 1 },
-      { center: 1.5, width: 1.5, hasDoor: true, label: '', signSide: 1 },
-      { center: 6.5, width: 1.5, hasDoor: true, label: northLabels[2], signSide: 1 },
-      { center: 11.5, width: 1.5, hasDoor: true, label: '', signSide: 1 }
+      { center: -10, width: 1.9, hasDoor: true, label: northLabels[0], signSide: 1 },
+      { center: -3.5, width: 1.9, hasDoor: true, label: northLabels[1], signSide: 1 },
+      { center: 1.5, width: 1.9, hasDoor: true, label: '', signSide: 1 },
+      { center: 6.5, width: 1.9, hasDoor: true, label: northLabels[2], signSide: 1 },
+      { center: 11.5, width: 1.9, hasDoor: true, label: '', signSide: 1 }
     ]);
 
     // --- 西棟の部屋仕切り＆廊下壁（X = -14） ---
     if (f === 1) {
       // 2F 西棟は広大な「図書室」（仕切りなし、2ドア）
       addWallWithOpenings('z', -14, -6, 16, y, mats.wall, [
-        { center: -1.5, width: 1.6, hasDoor: true, label: '図書室', signSide: 1 },
-        { center: 11.5, width: 1.6, hasDoor: true, label: '', signSide: 1 }
+        { center: -1.5, width: 1.9, hasDoor: true, label: '図書室', signSide: 1 },
+        { center: 11.5, width: 1.9, hasDoor: true, label: '', signSide: 1 }
       ]);
     } else {
       addBox(-22, -14, y, y + FLOOR_H, 5 - WALL_T / 2, 5 + WALL_T / 2, mats.wall, true, true);
       const westLabels = f === 0 ? ['倉庫', '西昇降口'] : ['空き教室', '3年B組'];
       addWallWithOpenings('z', -14, -6, 16, y, mats.wall, [
-        { center: -0.5, width: 1.5, hasDoor: true, label: westLabels[0], signSide: 1 },
-        { center: 10.5, width: 1.5, hasDoor: true, label: westLabels[1], signSide: 1 }
+        { center: -0.5, width: 1.9, hasDoor: true, label: westLabels[0], signSide: 1 },
+        { center: 10.5, width: 1.9, hasDoor: true, label: westLabels[1], signSide: 1 }
       ]);
     }
 
@@ -687,9 +692,9 @@ export function buildSchoolMap(scene, textures) {
       addBox(14, 22, y, y + FLOOR_H, 5 - WALL_T / 2, 5 + WALL_T / 2, mats.wall, true, true);
       addBox(14, 22, y, y + FLOOR_H, 11 - WALL_T / 2, 11 + WALL_T / 2, mats.wall, true, true);
       addWallWithOpenings('z', 14, -6, 11, y, mats.wall, [
-        { center: -2.0, width: 1.6, hasDoor: true, label: '職員室', signSide: -1 },
-        { center: 2.5, width: 1.5, hasDoor: true, label: '', signSide: -1 },
-        { center: 8.0, width: 1.5, hasDoor: true, label: '警備員室', signSide: -1 }
+        { center: -2.0, width: 1.9, hasDoor: true, label: '職員室', signSide: -1 },
+        { center: 2.5, width: 1.9, hasDoor: true, label: '', signSide: -1 },
+        { center: 8.0, width: 1.9, hasDoor: true, label: '警備員室', signSide: -1 }
       ]);
     } else if (f === 1) {
       // 2F 東棟：Z=-2..+2 は渡り廊下へ直通！北側(Z=-6..-2)は壁、南側(Z=2..16)は2年C組
@@ -704,16 +709,16 @@ export function buildSchoolMap(scene, textures) {
       brSign.position.set(14.1, y + 2.9, 0);
       mapGroup.add(brSign);
       addWallWithOpenings('z', 14, 2, 16, y, mats.wall, [
-        { center: 5.5, width: 1.5, hasDoor: true, label: '2年C組', signSide: -1 },
-        { center: 12.5, width: 1.5, hasDoor: true, label: '', signSide: -1 }
+        { center: 5.5, width: 1.9, hasDoor: true, label: '2年C組', signSide: -1 },
+        { center: 12.5, width: 1.9, hasDoor: true, label: '', signSide: -1 }
       ]);
     } else {
       // 3F 東棟：理科準備室(Z=-6..5)、3年A組(Z=5..16)
       addBox(14, 22, y, y + FLOOR_H, 5 - WALL_T / 2, 5 + WALL_T / 2, mats.wall, true, true);
       addWallWithOpenings('z', 14, -6, 16, y, mats.wall, [
-        { center: -0.5, width: 1.5, hasDoor: true, label: '理科準備室', signSide: -1 },
-        { center: 8.5, width: 1.5, hasDoor: true, label: '3年A組', signSide: -1 },
-        { center: 13.5, width: 1.5, hasDoor: true, label: '', signSide: -1 }
+        { center: -0.5, width: 1.9, hasDoor: true, label: '理科準備室', signSide: -1 },
+        { center: 8.5, width: 1.9, hasDoor: true, label: '3年A組', signSide: -1 },
+        { center: 13.5, width: 1.9, hasDoor: true, label: '', signSide: -1 }
       ]);
     }
 
@@ -791,24 +796,24 @@ export function buildSchoolMap(scene, textures) {
     // 別館階段と部屋の仕切り壁（X=38一直線・階段下に壁や柵なし！）
     addBox(38 - WALL_T / 2, 38 + WALL_T / 2, y, y + FLOOR_H, -10, -2, mats.annexWall, true, true);
 
-    // 別館内の部屋割り（すべて X=38 の廊下壁に綺麗に揃える）
+    // 別館内の部屋割り（すべて X=38 の廊下壁に綺麗に揃え、ドア幅1.9mでスイスイ入れる！）
     if (f === 0) {
       // 1F：美術室(X=38..46, Z=-2..4)、旧倉庫(X=38..46, Z=4..10)
       addBox(38, 46, y, y + FLOOR_H, -2 - WALL_T / 2, -2 + WALL_T / 2, mats.annexWall, true, true);
       addBox(38, 46, y, y + FLOOR_H, 4 - WALL_T / 2, 4 + WALL_T / 2, mats.annexWall, true, true);
       addWallWithOpenings('z', 38, -2, 10, y, mats.annexWall, [
-        { center: 1.0, width: 1.6, hasDoor: true, label: '美術室', signSide: -1 },
-        { center: 7.0, width: 1.6, hasDoor: true, label: '旧倉庫', signSide: -1 }
+        { center: 1.0, width: 1.9, hasDoor: true, label: '美術室', signSide: -1 },
+        { center: 7.0, width: 1.9, hasDoor: true, label: '旧倉庫', signSide: -1 }
       ]);
       addFluorescent(35, 0, 3, 'flicker');
     } else {
       // 2F：音楽室(X=38..46, Z=-10..4) ＋ 音楽準備室(X=38..46, Z=4..10)
       addWallWithOpenings('x', 4, 38, 46, y, mats.annexWall, [
-        { center: 42, width: 1.6, hasDoor: true, label: '音楽準備室', signSide: -1 }
+        { center: 42, width: 1.9, hasDoor: true, label: '音楽準備室', signSide: -1 }
       ]);
       addWallWithOpenings('z', 38, -2, 10, y, mats.annexWall, [
-        { center: 1.0, width: 1.7, hasDoor: true, label: '音楽室', signSide: -1 },
-        { center: 7.0, width: 1.6, hasDoor: true, label: '音楽準備室', signSide: -1 }
+        { center: 1.0, width: 1.9, hasDoor: true, label: '音楽室', signSide: -1 },
+        { center: 7.0, width: 1.9, hasDoor: true, label: '音楽準備室', signSide: -1 }
       ]);
       addFluorescent(35, 4, 3, 'flicker');
       addFluorescent(42, 4, -2, 'dim');
@@ -842,7 +847,7 @@ export function buildSchoolMap(scene, textures) {
     type: 'note',
     label: '古い吹奏楽部の名簿を調べる [E]',
     position: rosterPaper.position.clone(),
-    radius: 2.2,
+    radius: 2.6,
     text: '『平成10年 吹奏楽部名簿』——1名の名前が黒く塗りつぶされ、端に「音楽準備室・楽器庫にて行方不明扱い」とメモがある。'
   });
 
@@ -856,52 +861,53 @@ export function buildSchoolMap(scene, textures) {
 
   // --- 2F 2年A組（主人公の教室） ---
   populateClassroom(-6, 4, 4, -18, -10, true);
-  // 主人公の机（調べるポイント）
+  // 主人公の机（調べるポイント：1行目中央机 Z=-14.4 に同期）
   const myDeskMarker = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.03, 0.24), mats.paper);
-  myDeskMarker.position.set(-1.0, 4.76, -13.4);
+  myDeskMarker.position.set(-1.0, 4.76, -14.4);
   mapGroup.add(myDeskMarker);
   interactables.push({
     id: 'my_desk',
     type: 'desk',
     label: '自分の机を調べる [E]',
-    position: new THREE.Vector3(-1.0, 4.9, -13.4),
-    radius: 2.3
+    position: new THREE.Vector3(-1.0, 4.9, -14.4),
+    radius: 2.6
   });
 
   // ★ 狂気エンドアイテム①：2年A組・教卓の下の【大きい三角定規】
   const rulerGroup = new THREE.Group();
   const rulerShape = new THREE.Shape();
   rulerShape.moveTo(0, 0);
-  rulerShape.lineTo(0.85, 0);
-  rulerShape.lineTo(0, 0.62);
+  rulerShape.lineTo(0.88, 0);
+  rulerShape.lineTo(0, 0.65);
   rulerShape.closePath();
   const hole = new THREE.Path();
   hole.moveTo(0.14, 0.12);
-  hole.lineTo(0.48, 0.12);
-  hole.lineTo(0.14, 0.36);
+  hole.lineTo(0.5, 0.12);
+  hole.lineTo(0.14, 0.38);
   hole.closePath();
   rulerShape.holes.push(hole);
   const rulerMesh = new THREE.Mesh(
-    new THREE.ExtrudeGeometry(rulerShape, { depth: 0.035, bevelEnabled: false }),
-    new THREE.MeshStandardMaterial({ color: 0xd9a838, emissive: 0x3b2a08, roughness: 0.55 })
+    new THREE.ExtrudeGeometry(rulerShape, { depth: 0.04, bevelEnabled: false }),
+    new THREE.MeshStandardMaterial({ color: 0xe6b53c, emissive: 0x52390a, roughness: 0.48 })
   );
   rulerGroup.add(rulerMesh);
-  rulerGroup.position.set(-1.42, 4.04, -16.02);
-  rulerGroup.rotation.x = -0.22;
+  // 教卓の生徒側正面（Z=-16.25）に立てかけて見やすく＆すぐ取れる位置に配置！
+  rulerGroup.position.set(-1.44, 4.02, -16.22);
+  rulerGroup.rotation.x = -0.18;
   mapGroup.add(rulerGroup);
-  const rulerLight = new THREE.PointLight(0xffd26a, 0.65, 3.6);
-  rulerLight.position.set(-1.0, 4.45, -15.85);
+  const rulerLight = new THREE.PointLight(0xffd26a, 0.85, 4.2);
+  rulerLight.position.set(-1.0, 4.55, -15.85);
   mapGroup.add(rulerLight);
-  sceneLights.push({ light: rulerLight, baseIntensity: 0.65 });
+  sceneLights.push({ light: rulerLight, baseIntensity: 0.85 });
   interactables.push({
     id: 'item_ruler',
     type: 'key_item',
     itemKey: 'ruler',
     label: '教卓の下の大きい三角定規を取る [E]',
-    position: new THREE.Vector3(-1.0, 4.4, -15.9),
+    position: new THREE.Vector3(-1.0, 4.75, -15.95),
     mesh: rulerGroup,
     light: rulerLight,
-    radius: 2.6,
+    radius: 3.2,
     collected: false
   });
 
@@ -909,7 +915,7 @@ export function buildSchoolMap(scene, textures) {
   populateClassroom(4, 14, 4, -18, -10, true);
   populateClassroom(14, 22, 4, 2, 16, true);
 
-  // ★ 狂気エンドアイテム②：2年B組の教室の机にある【教室のコンパス】
+  // ★ 狂気エンドアイテム②：2年B組の教室の机にある【教室のコンパス】（1行目中央机 Z=-14.4 に同期）
   const compassGroup = new THREE.Group();
   const cMat = new THREE.MeshStandardMaterial({ color: 0xd0dce6, emissive: 0x1a2835, metalness: 0.85, roughness: 0.2 });
   const cLeg1 = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.003, 0.24, 8), cMat);
@@ -921,23 +927,23 @@ export function buildSchoolMap(scene, textures) {
   const cHead = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.05, 8), cMat);
   cHead.position.set(0, 0.13, 0);
   compassGroup.add(cLeg1, cLeg2, cHead);
-  compassGroup.position.set(9.0, 4.78, -13.4);
+  compassGroup.position.set(9.0, 4.78, -14.4);
   compassGroup.rotation.x = Math.PI / 2;
   compassGroup.rotation.z = 0.45;
   mapGroup.add(compassGroup);
-  const compassLight = new THREE.PointLight(0xb8e2ff, 0.65, 3.6);
-  compassLight.position.set(9.0, 5.05, -13.4);
+  const compassLight = new THREE.PointLight(0xb8e2ff, 0.75, 4.0);
+  compassLight.position.set(9.0, 5.05, -14.4);
   mapGroup.add(compassLight);
-  sceneLights.push({ light: compassLight, baseIntensity: 0.65 });
+  sceneLights.push({ light: compassLight, baseIntensity: 0.75 });
   interactables.push({
     id: 'item_compass',
     type: 'key_item',
     itemKey: 'compass',
     label: '教室のコンパスを取る [E]',
-    position: new THREE.Vector3(9.0, 4.85, -13.4),
+    position: new THREE.Vector3(9.0, 4.85, -14.4),
     mesh: compassGroup,
     light: compassLight,
-    radius: 2.5,
+    radius: 3.0,
     collected: false
   });
 
@@ -948,15 +954,15 @@ export function buildSchoolMap(scene, textures) {
     type: 'broadcast_deck',
     label: '放送室のカセットデッキを調べる [E]',
     position: new THREE.Vector3(-10.5, 5.0, -15.2),
-    radius: 2.4
+    radius: 2.6
   });
 
-  // --- 2F 図書室：本棚迷路（ステルスエリア！） ---
+  // --- 2F 図書室：本棚迷路（ドア前の通路幅を1.36m以上しっかり確保！） ---
   for (let row = 0; row < 4; row++) {
     const bz = -3.2 + row * 4.6;
-    addBox(-20.8, -17.5, 4, 6.4, bz - 0.35, bz + 0.35, mats.woodDark, true);
+    addBox(-20.8, -17.8, 4, 6.4, bz - 0.35, bz + 0.35, mats.woodDark, true);
     if (row % 2 === 1) {
-      addBox(-16.2, -14.8, 4, 6.4, bz - 0.35, bz + 0.35, mats.woodDark, true);
+      addBox(-16.9, -15.5, 4, 6.4, bz - 0.35, bz + 0.35, mats.woodDark, true);
     }
   }
 
@@ -979,7 +985,7 @@ export function buildSchoolMap(scene, textures) {
     position: tapeMesh.position.clone(),
     mesh: tapeMesh,
     light: tapeLight,
-    radius: 2.4,
+    radius: 2.8,
     collected: false
   });
 
@@ -988,7 +994,7 @@ export function buildSchoolMap(scene, textures) {
   populateClassroom(14, 22, 8, 5, 16, true);
   populateClassroom(-22, -14, 8, 5, 16, true);
 
-  // ★ 狂気エンドアイテム③：3F 理科室の【アルコールランプ】
+  // ★ 狂気エンドアイテム③：3F 理科室の【アルコールランプ】（1行目中央机 Z=-14.4 に同期）
   const lampGroup = new THREE.Group();
   const glassBody = new THREE.Mesh(
     new THREE.CylinderGeometry(0.08, 0.11, 0.18, 12),
@@ -1006,21 +1012,21 @@ export function buildSchoolMap(scene, textures) {
   );
   wick.position.y = 0.24;
   lampGroup.add(glassBody, metalCap, wick);
-  lampGroup.position.set(9.0, 8.75, -13.4);
+  lampGroup.position.set(9.0, 8.75, -14.4);
   mapGroup.add(lampGroup);
-  const lampLight = new THREE.PointLight(0x6ad4ff, 0.72, 3.8);
-  lampLight.position.set(9.0, 9.15, -13.4);
+  const lampLight = new THREE.PointLight(0x6ad4ff, 0.8, 4.0);
+  lampLight.position.set(9.0, 9.15, -14.4);
   mapGroup.add(lampLight);
-  sceneLights.push({ light: lampLight, baseIntensity: 0.72 });
+  sceneLights.push({ light: lampLight, baseIntensity: 0.8 });
   interactables.push({
     id: 'item_lamp',
     type: 'key_item',
     itemKey: 'lamp',
     label: '理科室のアルコールランプを取る [E]',
-    position: new THREE.Vector3(9.0, 8.9, -13.4),
+    position: new THREE.Vector3(9.0, 8.9, -14.4),
     mesh: lampGroup,
     light: lampLight,
-    radius: 2.5,
+    radius: 3.0,
     collected: false
   });
   // 理科室に不気味な人体模型シルエット（フェイクびっくり用）
@@ -1056,12 +1062,12 @@ export function buildSchoolMap(scene, textures) {
     position: keyMesh.position.clone(),
     mesh: keyMesh,
     light: keyLight,
-    radius: 2.5,
+    radius: 2.8,
     collected: false
   });
 
-  // --- 別館 1F 美術室：白い石膏像たち ---
-  [[39, 0], [42.5, 0.5], [44, 2.5], [39.5, 2.6]].forEach(([sx, sz]) => {
+  // --- 別館 1F 美術室：白い石膏像たち（ドア正面 X=38, Z=1.0 を完全開放！） ---
+  [[41.6, -0.6], [44.3, 0.0], [44.3, 2.6], [41.6, 2.8]].forEach(([sx, sz]) => {
     addBox(sx - 0.35, sx + 0.35, 0, 1.0, sz - 0.35, sz + 0.35, mats.woodMid, true);
     const bust = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.24, 0.55, 6), mats.plaster);
     bust.position.set(sx, 1.28, sz);
@@ -1071,17 +1077,17 @@ export function buildSchoolMap(scene, textures) {
     mapGroup.add(head);
   });
 
-  // --- 別館 1F 旧倉庫：木箱＆【シオリの折れたリードと楽譜】 ---
-  addBox(41.2, 43.6, 0, 0.92, 6.2, 8.2, mats.woodDark, true);
-  addBox(38.2, 40.0, 0, 1.4, 7.6, 9.2, mats.woodMid, true);
+  // --- 別館 1F 旧倉庫：木箱＆【シオリの折れたリードと楽譜】（ドア正面 X=38, Z=7.0 を完全開放！） ---
+  addBox(41.5, 43.8, 0, 0.92, 6.4, 8.4, mats.woodDark, true);
+  addBox(43.2, 45.0, 0, 1.4, 4.4, 5.8, mats.woodMid, true);
   const scoreMesh = new THREE.Mesh(
     new THREE.BoxGeometry(0.36, 0.06, 0.28),
     new THREE.MeshLambertMaterial({ color: 0xe6dec8, emissive: 0x3b1218 })
   );
-  scoreMesh.position.set(42.2, 0.97, 7.1);
+  scoreMesh.position.set(42.5, 0.97, 7.3);
   mapGroup.add(scoreMesh);
-  const scoreLight = new THREE.PointLight(0xff7f94, 0.7, 3.8);
-  scoreLight.position.set(42.2, 1.3, 7.1);
+  const scoreLight = new THREE.PointLight(0xff7f94, 0.75, 4.0);
+  scoreLight.position.set(42.5, 1.3, 7.3);
   mapGroup.add(scoreLight);
   interactables.push({
     id: 'item_score',
@@ -1091,7 +1097,7 @@ export function buildSchoolMap(scene, textures) {
     position: scoreMesh.position.clone(),
     mesh: scoreMesh,
     light: scoreLight,
-    radius: 2.5,
+    radius: 3.0,
     collected: false
   });
 
@@ -1130,7 +1136,7 @@ export function buildSchoolMap(scene, textures) {
     position: pouchMesh.position.clone(),
     mesh: pouchMesh,
     light: pouchLight,
-    radius: 2.5,
+    radius: 2.8,
     collected: false
   });
 
@@ -1308,12 +1314,12 @@ export function buildSchoolMap(scene, textures) {
     if (x > 32) {
       if (z < -2 && x < 38) return `別館階段 (${floorNum})`;
       if (floorNum === '2F') {
-        if (x >= 36 && z < 4) return '別館2F 音楽室';
-        if (x >= 36 && z >= 4) return '別館2F 音楽準備室';
+        if (x >= 38 && z < 4) return '別館2F 音楽室';
+        if (x >= 38 && z >= 4) return '別館2F 音楽準備室';
         return '別館2F 廊下';
       } else {
-        if (x >= 36 && z < 4) return '別館1F 美術室';
-        if (x >= 36 && z >= 4) return '別館1F 旧倉庫';
+        if (x >= 38 && z < 4) return '別館1F 美術室';
+        if (x >= 38 && z >= 4) return '別館1F 旧倉庫';
         return '別館1F 廊下';
       }
     }

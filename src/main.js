@@ -210,7 +210,7 @@ const player = {
   pos: new THREE.Vector3(12, 0, 13.5),
   yaw: 0,
   pitch: 0,
-  radius: 0.42,
+  radius: 0.34,
   stamina: 100,
   flashlightOn: true,
   savedFlashlightOn: true,
@@ -379,7 +379,8 @@ function enterLocker(locker) {
   const enemyDist = enemy.position.distanceTo(player.pos);
   const sameFloor = Math.abs(enemy.position.y - player.pos.y) < 1.8;
   // 狂気3アイテムが揃っているときは、少し離れていても見つけさせて反撃ムービーに入りやすくする！
-  const seenDist = hasMadnessSet() ? 11.5 : 4.5;
+  // 通常時も8.0m以内で視界に入ったまま逃げ込むと見られる（角を曲がって視線を切ってから隠れる！）
+  const seenDist = hasMadnessSet() ? 11.5 : 8.0;
   player.seenHiding = (
     enemy.active &&
     (enemy.state === 'chase' || hasMadnessSet()) &&
@@ -884,13 +885,13 @@ function updatePlayer(dt) {
   const wantsRun = ((keys['ShiftLeft'] || keys['ShiftRight']) || touchJoy.running) && isMoving && !player.crouching && player.stamina > 2;
 
   if (wantsRun) {
-    player.stamina = Math.max(0, player.stamina - 14 * dt);
+    player.stamina = Math.max(0, player.stamina - 22 * dt);
   } else {
-    player.stamina = Math.min(100, player.stamina + 26 * dt);
+    player.stamina = Math.min(100, player.stamina + 16 * dt);
   }
   staminaFill.style.width = `${player.stamina}%`;
 
-  const speed = player.crouching ? 1.85 : wantsRun ? 5.7 : 3.25;
+  const speed = player.crouching ? 1.8 : wantsRun ? 5.45 : 3.15;
 
   if (isMoving) {
     move.normalize().multiplyScalar(speed * dt);
@@ -958,7 +959,7 @@ function updatePlayer(dt) {
     ]);
   }
 
-  if (!story.enteredMusicRoom && player.pos.y > 3 && player.pos.y < 6 && player.pos.x > 36.5 && player.pos.z < 3.5) {
+  if (!story.enteredMusicRoom && player.pos.y > 3 && player.pos.y < 6 && player.pos.x > 38.2 && player.pos.z < 3.5) {
     story.enteredMusicRoom = true;
     showDialogue('美咲', '「音楽室……！ ピアノの上にポーチが見えた！ 危なかったらロッカーに隠れよう……」', 5.0);
   }
@@ -972,7 +973,7 @@ function updatePlayer(dt) {
   }
 
   // 別館1F 美術室フェイク演出（石膏像）
-  if (!story.enteredArtScare && player.pos.y < 2 && player.pos.x > 36.8 && player.pos.z > -1.8 && player.pos.z < 3.6) {
+  if (!story.enteredArtScare && player.pos.y < 2 && player.pos.x > 38.2 && player.pos.z > -1.8 && player.pos.z < 3.6) {
     story.enteredArtScare = true;
     audio.playThudScare();
     showDialogue('美咲', '「うわっ……美術室の石膏像、今こっちを見た気がした……」', 4.5);
@@ -1034,14 +1035,24 @@ function findNearestTarget() {
     }
   }
 
+  const flatLookX = -Math.sin(player.yaw);
+  const flatLookZ = -Math.cos(player.yaw);
+
   for (const item of schoolMap.interactables) {
     if (item.collected) continue;
-    const dist = camPos.distanceTo(item.position);
-    if (dist > item.radius) continue;
-    const toTarget = item.position.clone().sub(camPos).normalize();
-    if (lookDir.dot(toTarget) < 0.25 && dist > 1.4) continue;
-    if (dist < bestScore) {
-      bestScore = dist;
+    // 同じ階（高さ差2.4m以内）かつ水平距離で判定し、足元の三角定規や机上アイテムも確実に取れる！
+    if (Math.abs(item.position.y - player.pos.y) > 2.4) continue;
+    const dx = item.position.x - camPos.x;
+    const dz = item.position.z - camPos.z;
+    const flatDist = Math.hypot(dx, dz);
+    if (flatDist > item.radius) continue;
+    if (flatDist > 1.55) {
+      const flatDot = (dx * flatLookX + dz * flatLookZ) / Math.max(0.001, flatDist);
+      if (flatDot < 0.25) continue;
+    }
+    const score = flatDist - 0.15;
+    if (score < bestScore) {
+      bestScore = score;
       let label = item.label;
       if (item.type === 'sealed_locker') {
         if (story.ghostReleased) label = '解放された楽器収納庫を見る [E]';
