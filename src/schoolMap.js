@@ -815,8 +815,8 @@ export function buildSchoolMap(scene, textures) {
 
     // 別館内の部屋割り
     if (f === 0) {
-      // 1F：美術室(Z=-2..4)、旧倉庫(Z=4..10)
-      addBox(36, 46, y, y + FLOOR_H, -2 - WALL_T / 2, -2 + WALL_T / 2, mats.annexWall, true, true);
+      // 1F：美術室(Z=-2..4)、旧倉庫(Z=4..10) ※X=36..38は別館階段1F右レーン入口なので塞がない！
+      addBox(38, 46, y, y + FLOOR_H, -2 - WALL_T / 2, -2 + WALL_T / 2, mats.annexWall, true, true);
       addBox(36, 46, y, y + FLOOR_H, 4 - WALL_T / 2, 4 + WALL_T / 2, mats.annexWall, true, true);
       addWallWithOpenings('z', 36, -2, 10, y, mats.annexWall, [
         { center: 1.0, width: 1.5, hasDoor: true, label: '美術室', signSide: -1 },

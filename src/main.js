@@ -870,8 +870,8 @@ function updatePlayer(dt) {
   }
 
   if (!story.enemyTriggered && !story.ghostReleased && player.pos.x > 24 && player.pos.y > 2.5) {
-    activateRedCoatWoman(new THREE.Vector3(34, 0, 7.0), [
-      { speaker: '美咲', text: '「……っ！ 急に空気が冷たくなった……別館の下の方から、誰かの気配がする？」', duration: 4.2 },
+    activateRedCoatWoman(new THREE.Vector3(34, 4, 6.5), [
+      { speaker: '美咲', text: '「……っ！ 急に空気が冷たくなった……別館の廊下の奥に、赤いコートの誰かがいる！？」', duration: 4.5 },
       { speaker: '赤いコートの女', text: '「……ワスレモノ……ドコ……」', duration: 3.8, isGhost: true }
     ]);
   }
@@ -1010,7 +1010,7 @@ function tryInteract() {
       story.checkedDesk = true;
       audio.playPickup();
       updateObjectiveText();
-      activateRedCoatWoman(new THREE.Vector3(34, 0, 7.0), [
+      activateRedCoatWoman(new THREE.Vector3(34, 4, 6.5), [
         { speaker: '美咲', text: '「あれ……机の中にもロッカーにもない！？ どこに置いたっけ……！」', duration: 3.8 },
         { speaker: '美咲', text: '「そうだ、片付けの最後に【別館2Fの音楽室】のピアノの上に置いたんだ！ 東棟2Fの渡り廊下から急ごう！」', duration: 5.5 }
       ]);
@@ -1295,6 +1295,20 @@ function drawSchoolMap2D() {
   ctx.font = 'bold 14px "Yu Gothic", sans-serif';
   ctx.textAlign = 'left';
   ctx.fillText(`校舎見取り図 【現在: ${floorNum}F】  ■緑=ロッカー  ★金=重要アイテム  (タップ/Mで閉じる)`, 18, 22);
+
+  // 赤いコートの女が同じ階にいるときは不気味な気配表示を出す
+  if (enemy.active) {
+    const enemyFloor = enemy.position.y < 2 ? 1 : enemy.position.y < 6 ? 2 : 3;
+    ctx.font = 'bold 12px "Yu Gothic", sans-serif';
+    ctx.fillStyle = enemyFloor === floorNum ? '#ff5964' : '#9aa0a8';
+    ctx.fillText(
+      enemyFloor === floorNum
+        ? '⚠ この階に赤いコートの女の気配がする……'
+        : `（気配：別の階 [${enemyFloor}F] の方からメトロノームの音がする）`,
+      18,
+      H - 10
+    );
+  }
 
   drawRect(-22, -10, 22, -6, '#363a35', '北棟廊下');
   drawRect(-14, -6, -10, 16, '#363a35');

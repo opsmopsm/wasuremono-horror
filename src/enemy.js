@@ -112,6 +112,8 @@ export class RedCoatWoman {
     this.spotDelayTimer = 0;   // 発見してから加速するまでの逃げ出し猶予
     this.retreatCooldown = 0;  // 振り切ったあと遠くへ離れるクールダウン
     this.whisperTimer = 5.0;
+    this.stuckTimer = 0;
+    this.lastCheckPos = this.position.clone();
     this.animTime = 0;
 
     // ちょうど良く怖くて逃げ切れる速度バランス！
@@ -369,9 +371,9 @@ export class RedCoatWoman {
     return this.segmentClear(this.position, playerPos, colliders);
   }
 
-  // 広めの半径(0.46m)で壁コライダーと常時衝突判定（コートや腕が壁を突き抜けない！）
-  collidesAt(x, y, z, colliders) {
-    const r = 0.46;
+  // 壁コライダー衝突判定（通常0.42m、狭い階段昇降時は0.26mで詰まり防止＋壁貫通ゼロ）
+  collidesAt(x, y, z, colliders, radius = 0.42) {
+    const r = radius;
     const minY = y + 0.3;
     const maxY = y + 1.8;
     for (const c of colliders) {
@@ -391,7 +393,7 @@ export class RedCoatWoman {
       if (d.isOpen || d.locked) continue;
       if (Math.abs(d.center.y - (this.position.y + 1.2)) > 1.4) continue;
       const dist = Math.hypot(d.center.x - this.position.x, d.center.z - this.position.z);
-      if (dist < 1.1) {
+      if (dist < 1.15) {
         d.isOpen = true;
         d.collider.active = false;
         if (callbacks && callbacks.onOpenDoor) callbacks.onOpenDoor();
@@ -399,17 +401,34 @@ export class RedCoatWoman {
     }
   }
 
-  // プレイヤーから十分に離れた巡回ノードを選ぶ（張り付きを完全防止！）
+  // ほどよく出会えて、かつ張り付かない巡回ノードを選ぶ
   pickPatrolTarget(playerPos, preferFar = false) {
     const pool = this.nav.patrolTargets;
-    const farNodes = pool.filter((idx) => {
-      const p = this.nav.nodes[idx].pos;
-      return p.distanceTo(playerPos) >= 14.0;
-    });
-    const candidates = (preferFar && farNodes.length > 0)
-      ? farNodes
-      : (Math.random() < 0.72 && farNodes.length > 0 ? farNodes : pool);
-    return candidates[Math.floor(Math.random() * candidates.length)];
+    if (preferFar) {
+      const farNodes = pool.filter((idx) => this.nav.nodes[idx].pos.distanceTo(playerPos) >= 14.0);
+      if (farNodes.length > 0) {
+        return farNodes[Math.floor(Math.random() * farNodes.length)];
+      }
+    }
+
+    // 通常時：65%で「プレイヤーと同じ階の中距離（8m〜26m）」を選んで程よく遭遇する！
+    if (Math.random() < 0.65) {
+      const sameFloorMid = pool.filter((idx) => {
+        const p = this.nav.nodes[idx].pos;
+        const dy = Math.abs(p.y - playerPos.y);
+        const d = p.distanceTo(playerPos);
+        return dy < 1.8 && d >= 8.0 && d <= 26.0;
+      });
+      if (sameFloorMid.length > 0) {
+        return sameFloorMid[Math.floor(Math.random() * sameFloorMid.length)];
+      }
+      const sameFloorAny = pool.filter((idx) => Math.abs(this.nav.nodes[idx].pos.y - playerPos.y) < 1.8);
+      if (sameFloorAny.length > 0) {
+        return sameFloorAny[Math.floor(Math.random() * sameFloorAny.length)];
+      }
+    }
+
+    return pool[Math.floor(Math.random() * pool.length)];
   }
 
   update(dt, playerPos, playerState, colliders, callbacks, doors = []) {
@@ -594,7 +613,9 @@ export class RedCoatWoman {
     const prevX = this.position.x;
     const prevZ = this.position.z;
 
-    // 階段移動中も含めて常に壁コライダーを厳密チェック（絶対に壁をすり抜けない！）
+    // 階段昇降中（Y変化中）は狭い階段レーンで詰まらないよう半径0.26m、廊下では0.42mで厳密衝突
+    const isClimbing = Math.abs(dy) > 0.002;
+    const rad = isClimbing ? 0.26 : 0.42;
     const subSteps = Math.max(1, Math.ceil(Math.hypot(dx, dz) / 0.07));
     const sx = dx / subSteps;
     const sy = dy / subSteps;
@@ -603,17 +624,30 @@ export class RedCoatWoman {
     for (let i = 0; i < subSteps; i++) {
       const ny = this.position.y + sy;
       let movedAny = false;
-      if (!colliders || !this.collidesAt(this.position.x + sx, ny, this.position.z, colliders)) {
+      if (!colliders || !this.collidesAt(this.position.x + sx, ny, this.position.z, colliders, rad)) {
         this.position.x += sx;
         movedAny = true;
       }
-      if (!colliders || !this.collidesAt(this.position.x, ny, this.position.z + sz, colliders)) {
+      if (!colliders || !this.collidesAt(this.position.x, ny, this.position.z + sz, colliders, rad)) {
         this.position.z += sz;
         movedAny = true;
       }
       if (movedAny || Math.abs(sy) > 0.0001) {
         this.position.y = ny;
       }
+    }
+
+    // アンチスタック安全装置：2.5秒以上同じ場所に引っかかっていたら最寄りの安全な廊下ノードへ復帰
+    this.stuckTimer += dt;
+    if (this.stuckTimer >= 2.5) {
+      if (this.position.distanceTo(this.lastCheckPos) < 0.25) {
+        const safeNode = this.findNearestNode(this.position);
+        this.position.copy(this.nav.nodes[safeNode].pos);
+        this.currentPath = [];
+        this.pathTimer = 0;
+      }
+      this.lastCheckPos.copy(this.position);
+      this.stuckTimer = 0;
     }
 
     const targetAngle = Math.atan2(dir.x, dir.z);
