@@ -37,24 +37,24 @@ function buildNavGraph() {
     { id: 24, pos: new THREE.Vector3(-12, 4, 4) },     // 2F 西棟中（図書室前）
     { id: 25, pos: new THREE.Vector3(-12, 4, 12) },    // 2F 西棟南
 
-    // --- 2F 渡り廊下 & 別館2F ---
+    // --- 2F 渡り廊下 & 別館2F（廊下 X=32..38、音楽室ドア X=38, Z=1.0） ---
     { id: 26, pos: new THREE.Vector3(19, 4, 0) },      // 2F 渡り廊下入口
     { id: 27, pos: new THREE.Vector3(27, 4, 0) },      // 2F 渡り廊下中央
-    { id: 28, pos: new THREE.Vector3(34, 4, 0) },      // 別館2F 渡り廊下出口
-    { id: 29, pos: new THREE.Vector3(34, 4, 1.0) },    // 別館2F 音楽室ドア正面
-    { id: 30, pos: new THREE.Vector3(34, 4, 6.5) },    // 別館2F 廊下南
-    { id: 31, pos: new THREE.Vector3(38.2, 4, 1.0) },  // 別館2F 音楽室入口内
-    { id: 32, pos: new THREE.Vector3(40.0, 4, -3.5) }, // 別館2F 音楽室ピアノ手前
+    { id: 28, pos: new THREE.Vector3(34.5, 4, 0) },    // 別館2F 渡り廊下出口
+    { id: 29, pos: new THREE.Vector3(35.0, 4, 1.0) },  // 別館2F 音楽室ドア正面
+    { id: 30, pos: new THREE.Vector3(35.0, 4, 6.5) },  // 別館2F 廊下南
+    { id: 31, pos: new THREE.Vector3(40.0, 4, 1.0) },  // 別館2F 音楽室入口内（ドア直通）
+    { id: 32, pos: new THREE.Vector3(40.2, 4, -3.5) }, // 別館2F 音楽室ピアノ手前
 
-    // --- 別館階段 2F<->1F（廊下側の中継ノード経由） ---
-    { id: 33, pos: new THREE.Vector3(33.5, 4.0, -1.2) },
-    { id: 34, pos: new THREE.Vector3(33.5, 3.8, -2.5) },
+    // --- 別館階段 2F<->1F（幅6m開放ホールで引っかかりゼロ！） ---
+    { id: 33, pos: new THREE.Vector3(33.5, 4.0, -1.0) },
+    { id: 34, pos: new THREE.Vector3(33.5, 3.8, -2.6) },
     { id: 35, pos: new THREE.Vector3(33.5, 2.0, -8.5) },
     { id: 36, pos: new THREE.Vector3(36.5, 2.0, -8.5) },
-    { id: 37, pos: new THREE.Vector3(36.5, 0.2, -2.5) },
-    { id: 38, pos: new THREE.Vector3(36.5, 0.0, -1.2) },
-    { id: 39, pos: new THREE.Vector3(34.0, 0.0, 1.0) }, // 別館1F 廊下
-    { id: 40, pos: new THREE.Vector3(34.0, 0.0, 7.0) }, // 別館1F 裏口前
+    { id: 37, pos: new THREE.Vector3(36.5, 0.2, -2.6) },
+    { id: 38, pos: new THREE.Vector3(36.5, 0.0, -1.0) },
+    { id: 39, pos: new THREE.Vector3(35.0, 0.0, 1.0) }, // 別館1F 廊下
+    { id: 40, pos: new THREE.Vector3(35.0, 0.0, 7.0) }, // 別館1F 裏口前
 
     // --- 東階段 2F->3F & 3F 本館 ---
     { id: 41, pos: new THREE.Vector3(20.0, 4.0, -8.2) },

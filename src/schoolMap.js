@@ -471,8 +471,8 @@ export function buildSchoolMap(scene, textures) {
       mapGroup.add(m);
     }
 
-    // 中央の仕切り手すり（横飛び防止）
-    addBox(midX - 0.12, midX + 0.12, baseY, baseY + FLOOR_H, splitZ, zFront - 0.15, mats.wall, true);
+    // 中央の手すり（入口から0.8m奥・踊り場手前0.4mまでに抑えて、絶対に角に引っかからない！）
+    addBox(midX - 0.08, midX + 0.08, baseY + 1.0, baseY + 2.6, splitZ + 0.4, zFront - 0.8, mats.metalDark, false);
 
     // 高さ補間用データ登録
     stairZones.push({
@@ -645,19 +645,7 @@ export function buildSchoolMap(scene, textures) {
     // 東階段（X = +14..+22, Z = -18..-10）
     addBox(14 - WALL_T / 2, 14 + WALL_T / 2, y, y + FLOOR_H, -18, -10, mats.wall, true, true);
 
-    // 階段の「行けないレーン」を柵でガード（視覚は1.3m、見えない当たり判定は2.4mで完全ガード）
-    if (f === 0) {
-      addBox(-22, -18, y, y + 1.3, -10.2, -9.9, mats.metalDark, true);
-      colliders.push({ minX: -22, maxX: -18, minY: y, maxY: y + 2.4, minZ: -10.25, maxZ: -9.85 });
-      addBox(14, 18, y, y + 1.3, -10.2, -9.9, mats.metalDark, true);
-      colliders.push({ minX: 14, maxX: 18, minY: y, maxY: y + 2.4, minZ: -10.25, maxZ: -9.85 });
-    }
-    if (f === 2) {
-      addBox(-18, -14, y, y + 1.3, -10.2, -9.9, mats.metalDark, true);
-      colliders.push({ minX: -18, maxX: -14, minY: y, maxY: y + 2.4, minZ: -10.25, maxZ: -9.85 });
-      addBox(18, 22, y, y + 1.3, -10.2, -9.9, mats.metalDark, true);
-      colliders.push({ minX: 18, maxX: 22, minY: y, maxY: y + 2.4, minZ: -10.25, maxZ: -9.85 });
-    }
+    // 階段下の邪魔な壁・ガード柵は撤去（スムーズに昇降でき引っかかりゼロ！）
 
     // --- 北棟の部屋仕切り＆廊下壁（Z = -10） ---
     addBox(-6 - WALL_T / 2, -6 + WALL_T / 2, y, y + FLOOR_H, -18, -10, mats.wall, true, true);
@@ -765,14 +753,13 @@ export function buildSchoolMap(scene, textures) {
   for (let f = 0; f < 2; f++) {
     const y = f * FLOOR_H;
 
-    // 床＆天井
-    addFloorSlab(32, 36, y, -2, 10, mats.corridorFloor); // 別館廊下
+    // 床＆天井（別館廊下を階段と同じ幅 X=32..38 に統一して段差・壁引っかかりゼロ！）
+    addFloorSlab(32, 38, y, -2, 10, mats.corridorFloor); // 別館廊下（広々6m）
     if (f === 0) {
       addFloorSlab(32, 38, 0, -10, -2, mats.corridorFloor); // 別館階段1F底
-      addFloorSlab(36, 46, 0, -2, 10, mats.woodFloor);      // 美術室・旧倉庫
+      addFloorSlab(38, 46, 0, -2, 10, mats.woodFloor);      // 美術室・旧倉庫
     } else {
-      addFloorSlab(38, 46, 4, -10, -2, mats.woodFloor);     // 音楽室北側
-      addFloorSlab(36, 46, 4, -2, 10, mats.woodFloor);      // 音楽室＆準備室
+      addFloorSlab(38, 46, 4, -10, 10, mats.woodFloor);     // 音楽室＆準備室
     }
     addCeilingSlab(32, 46, y + FLOOR_H, -2, 10);
     if (f === 1) {
@@ -782,14 +769,14 @@ export function buildSchoolMap(scene, textures) {
     // 別館外周壁
     addBox(32, 46, y, y + FLOOR_H, -10 - WALL_T / 2, -10 + WALL_T / 2, mats.annexWall, true, true); // 北
     addBox(46 - WALL_T / 2, 46 + WALL_T / 2, y, y + FLOOR_H, -10, 10, mats.annexWall, true, true);  // 東
-    addBox(36, 46, y, y + FLOOR_H, 10 - WALL_T / 2, 10 + WALL_T / 2, mats.annexWall, true, true);   // 南(部屋)
+    addBox(38, 46, y, y + FLOOR_H, 10 - WALL_T / 2, 10 + WALL_T / 2, mats.annexWall, true, true);   // 南(部屋)
 
     // 南(廊下端)：1Fは別館裏口（非常口！）、2Fは窓
     if (f === 0) {
-      addBox(32, 36, y, y + FLOOR_H, 10 - WALL_T / 2, 10 + WALL_T / 2, mats.door, true, false);
-      addExitSign(34, y, 9.7, Math.PI);
+      addBox(32, 38, y, y + FLOOR_H, 10 - WALL_T / 2, 10 + WALL_T / 2, mats.door, true, false);
+      addExitSign(35, y, 9.7, Math.PI);
     } else {
-      addWindowWall('x', 10, 32, 36, y, mats.annexWall);
+      addWindowWall('x', 10, 32, 38, y, mats.annexWall);
     }
 
     // 西外周壁（2Fの Z=-2..+2 は渡り廊下接続口！）
@@ -801,39 +788,30 @@ export function buildSchoolMap(scene, textures) {
       addWindowWall('z', 32, -2, 10, y, mats.annexWall);
     }
 
-    // 別館階段の仕切り（X=38, Z=-10..-2）とガード
+    // 別館階段と部屋の仕切り壁（X=38一直線・階段下に壁や柵なし！）
     addBox(38 - WALL_T / 2, 38 + WALL_T / 2, y, y + FLOOR_H, -10, -2, mats.annexWall, true, true);
-    if (f === 0) {
-      addBox(32, 35, 0, 1.3, -2.2, -1.9, mats.metalDark, true); // 1F左ガード
-      colliders.push({ minX: 32, maxX: 35, minY: 0, maxY: 2.4, minZ: -2.25, maxZ: -1.85 });
-    } else {
-      addBox(35, 38, 4, 5.3, -2.2, -1.9, mats.metalDark, true); // 2F右ガード
-      colliders.push({ minX: 35, maxX: 38, minY: 4, maxY: 6.4, minZ: -2.25, maxZ: -1.85 });
-      // 音楽室西側の2m隙間（X=36..38, Z=-2）を完全封鎖
-      addBox(36, 38, y, y + FLOOR_H, -2 - WALL_T / 2, -2 + WALL_T / 2, mats.annexWall, true, true);
-    }
 
-    // 別館内の部屋割り
+    // 別館内の部屋割り（すべて X=38 の廊下壁に綺麗に揃える）
     if (f === 0) {
-      // 1F：美術室(Z=-2..4)、旧倉庫(Z=4..10) ※X=36..38は別館階段1F右レーン入口なので塞がない！
+      // 1F：美術室(X=38..46, Z=-2..4)、旧倉庫(X=38..46, Z=4..10)
       addBox(38, 46, y, y + FLOOR_H, -2 - WALL_T / 2, -2 + WALL_T / 2, mats.annexWall, true, true);
-      addBox(36, 46, y, y + FLOOR_H, 4 - WALL_T / 2, 4 + WALL_T / 2, mats.annexWall, true, true);
-      addWallWithOpenings('z', 36, -2, 10, y, mats.annexWall, [
-        { center: 1.0, width: 1.5, hasDoor: true, label: '美術室', signSide: -1 },
-        { center: 7.0, width: 1.5, hasDoor: true, label: '旧倉庫', signSide: -1 }
+      addBox(38, 46, y, y + FLOOR_H, 4 - WALL_T / 2, 4 + WALL_T / 2, mats.annexWall, true, true);
+      addWallWithOpenings('z', 38, -2, 10, y, mats.annexWall, [
+        { center: 1.0, width: 1.6, hasDoor: true, label: '美術室', signSide: -1 },
+        { center: 7.0, width: 1.6, hasDoor: true, label: '旧倉庫', signSide: -1 }
       ]);
-      addFluorescent(34, 0, 3, 'flicker');
+      addFluorescent(35, 0, 3, 'flicker');
     } else {
-      // 2F：音楽室(X=36..46, Z=-2..4 ＋ 北奥 X=38..46, Z=-10..-2) ＋ 音楽準備室(Z=4..10)
-      addWallWithOpenings('x', 4, 36, 46, y, mats.annexWall, [
-        { center: 41, width: 1.5, hasDoor: true, label: '音楽準備室', signSide: -1 }
+      // 2F：音楽室(X=38..46, Z=-10..4) ＋ 音楽準備室(X=38..46, Z=4..10)
+      addWallWithOpenings('x', 4, 38, 46, y, mats.annexWall, [
+        { center: 42, width: 1.6, hasDoor: true, label: '音楽準備室', signSide: -1 }
       ]);
-      addWallWithOpenings('z', 36, -2, 10, y, mats.annexWall, [
-        { center: 1.0, width: 1.6, hasDoor: true, label: '音楽室', signSide: -1 },
-        { center: 7.0, width: 1.5, hasDoor: true, label: '音楽準備室', signSide: -1 }
+      addWallWithOpenings('z', 38, -2, 10, y, mats.annexWall, [
+        { center: 1.0, width: 1.7, hasDoor: true, label: '音楽室', signSide: -1 },
+        { center: 7.0, width: 1.6, hasDoor: true, label: '音楽準備室', signSide: -1 }
       ]);
-      addFluorescent(34, 4, 3, 'flicker');
-      addFluorescent(41, 4, -2, 'dim');
+      addFluorescent(35, 4, 3, 'flicker');
+      addFluorescent(42, 4, -2, 'dim');
     }
   }
 
@@ -1028,7 +1006,7 @@ export function buildSchoolMap(scene, textures) {
 
   // 音楽室の譜面台と椅子
   for (let i = 0; i < 4; i++) {
-    const mx = 38.2 + i * 1.9;
+    const mx = 39.2 + i * 1.75;
     addBox(mx - 0.04, mx + 0.04, 4, 5.1, -0.8, -0.72, mats.metalDark, false);
     addBox(mx - 0.25, mx + 0.25, 5.05, 5.32, -0.82, -0.7, mats.metalDark, false);
   }
@@ -1143,15 +1121,15 @@ export function buildSchoolMap(scene, textures) {
   addHideLocker('locker_1f_north2', 9.0, 0, -9.45, Math.PI);
   addHideLocker('locker_1f_west', -13.45, 0, 3.0, -Math.PI / 2);
   addHideLocker('locker_1f_east', 13.45, 0, 5.0, Math.PI / 2);
-  addHideLocker('locker_1f_annex', 35.45, 0, 4.0, Math.PI / 2);
+  addHideLocker('locker_1f_annex', 37.45, 0, 4.0, Math.PI / 2);
 
   addHideLocker('locker_2f_2a', -5.35, 4, -13.5, -Math.PI / 2);
   addHideLocker('locker_2f_north1', -6.2, 4, -9.45, Math.PI);
   addHideLocker('locker_2f_north2', 9.0, 4, -9.45, Math.PI);
   addHideLocker('locker_2f_west', -13.45, 4, 4.0, -Math.PI / 2);
   addHideLocker('locker_2f_east', 13.45, 4, 8.8, Math.PI / 2);
-  addHideLocker('locker_2f_annex', 35.45, 4, 4.0, Math.PI / 2);
-  addHideLocker('locker_2f_music', 36.65, 4, -1.6, -Math.PI / 2);
+  addHideLocker('locker_2f_annex', 37.45, 4, 4.0, Math.PI / 2);
+  addHideLocker('locker_2f_music', 38.65, 4, -1.6, -Math.PI / 2);
 
   addHideLocker('locker_3f_north', 3.8, 8, -9.45, Math.PI);
 
@@ -1174,8 +1152,8 @@ export function buildSchoolMap(scene, textures) {
     id: 'exit_annex',
     type: 'exit',
     label: '別館裏口（非常口）から脱出する [E]',
-    position: new THREE.Vector3(34, 1.3, 9.2),
-    radius: 2.5
+    position: new THREE.Vector3(35, 1.3, 9.2),
+    radius: 2.8
   });
 
   // =========================================================================
