@@ -1,10 +1,11 @@
 import * as THREE from 'three';
-import { createTextures } from './textures.js';
+import { createTextures, createNightEnvMap } from './textures.js';
 import { HorrorAudio } from './audio.js';
 import { buildSchoolMap } from './schoolMap.js';
 import { RedCoatWoman } from './enemy.js';
 import { SchoolNPCs } from './npcs.js';
 import { CutsceneDirector } from './cutscenes.js';
+import { BodycamPostFX } from './postfx.js';
 
 // =========================================================================
 // DOM要素
@@ -46,6 +47,11 @@ const lockerSlitOverlay = document.getElementById('locker-slit-overlay');
 const mapModal = document.getElementById('map-modal');
 const mapCanvas = document.getElementById('map-canvas');
 const qualityBadge = document.getElementById('quality-badge');
+const bodycamHud = document.getElementById('bodycam-hud');
+const bcClockEl = document.getElementById('bc-clock');
+const bcCamAreaEl = document.getElementById('bc-cam-area');
+const bcMeterL = document.getElementById('bc-meter-l');
+const bcMeterR = document.getElementById('bc-meter-r');
 
 const mobileControls = document.getElementById('mobile-controls');
 const joystickZone = document.getElementById('joystick-zone');
@@ -123,7 +129,7 @@ function renderEndingTrackers() {
 renderEndingTrackers();
 
 // =========================================================================
-// Three.js セットアップ（高FPS最適化＋ACESFilmicトーンマッピング＋強力懐中電灯）
+// Three.js セットアップ（ボディカム実写風PBR＋環境反射IBL＋1パスポストプロセス）
 // =========================================================================
 const renderer = new THREE.WebGLRenderer({
   canvas,
@@ -132,64 +138,79 @@ const renderer = new THREE.WebGLRenderer({
 });
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.32;
+renderer.toneMappingExposure = 1.24;
 // スマホはシャドウマップOFFでFPSを2〜3倍に向上、PCは軽量PCFShadowMapを使用
 renderer.shadowMap.enabled = !isTouchMode;
 renderer.shadowMap.type = THREE.PCFShadowMap;
 
+const postFX = new BodycamPostFX(renderer);
+
 const scanlinesEl = document.getElementById('scanlines');
-let ps1Mode = false; // デフォルトを高精細リッチホラー画質に！（PキーでPS1レトロ切替可）
+let ps1Mode = false; // デフォルトをボディカム・リアル画質に！（PキーでPS1レトロ切替可）
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x04070e);
+scene.fog = new THREE.FogExp2(0x050912, 0.046);
+// 手続き的ナイト校舎IBL環境マップ（濡れた床・ロッカー・金属・窓ガラスが実写のように光を反射！）
+scene.environment = createNightEnvMap(renderer);
+
+const camera = new THREE.PerspectiveCamera(84, window.innerWidth / Math.max(1, window.innerHeight), 0.05, 85);
 
 function updateResolution() {
   const aspect = window.innerWidth / Math.max(1, window.innerHeight);
+  camera.fov = ps1Mode ? 68 : 84; // ボディカム広角レンズ！
   camera.aspect = aspect;
   camera.updateProjectionMatrix();
+  postFX.setPs1Mode(ps1Mode);
+
+  if (bodycamHud) bodycamHud.classList.toggle('hidden', ps1Mode);
 
   if (ps1Mode) {
     renderer.setPixelRatio(1);
     const targetH = 270;
     const targetW = Math.round(targetH * aspect);
     renderer.setSize(targetW, targetH, false);
+    postFX.setSize(targetW, targetH);
     canvas.classList.add('pixelated');
     if (scanlinesEl) scanlinesEl.classList.remove('subtle');
     if (qualityBadge) qualityBadge.textContent = '画質: PS1レトロ [P]';
   } else {
     const maxPR = isTouchMode ? 1.0 : 1.5;
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, maxPR));
+    const pr = Math.min(window.devicePixelRatio || 1, maxPR);
+    renderer.setPixelRatio(pr);
     renderer.setSize(window.innerWidth, window.innerHeight, false);
+    postFX.setSize(window.innerWidth * pr, window.innerHeight * pr);
     canvas.classList.remove('pixelated');
     if (scanlinesEl) scanlinesEl.classList.add('subtle');
-    if (qualityBadge) qualityBadge.textContent = '画質: 高精細ホラー [P]';
+    if (qualityBadge) qualityBadge.textContent = '画質: ボディカム・リアル [P]';
   }
 }
 
-const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x050811);
-scene.fog = new THREE.FogExp2(0x050811, 0.048);
-
-const camera = new THREE.PerspectiveCamera(68, window.innerWidth / Math.max(1, window.innerHeight), 0.05, 80);
 window.addEventListener('resize', updateResolution);
 updateResolution();
 
-// 立体的な夜の環境光（見やすさとホラーの陰影を両立）
-const ambient = new THREE.HemisphereLight(0x465d8c, 0x1e1b18, 0.58);
+// 立体的な夜の環境光（暗闇のコントラストを保ちつつ表面ディテールを残す）
+const ambient = new THREE.HemisphereLight(0x3a527c, 0x161412, 0.48);
 scene.add(ambient);
 
-// 手持ちの強力LED懐中電灯（visibleは常にtrue固定・ON/OFFはintensity切替で途中ロード0回！）
-const FLASHLIGHT_POWER = 18.0;
-const flashlight = new THREE.SpotLight(0xfff6df, FLASHLIGHT_POWER, 52, Math.PI / 3.6, 0.52, 1.0);
+// 手持ちの強力LEDタクティカル懐中電灯（visibleは常にtrue固定・ON/OFFはintensity切替で途中ロード0回！）
+const FLASHLIGHT_POWER = 20.0;
+const flashlight = new THREE.SpotLight(0xf4f8ff, FLASHLIGHT_POWER, 56, Math.PI / 3.4, 0.56, 0.98);
 flashlight.castShadow = !isTouchMode;
 flashlight.shadow.mapSize.width = 512;
 flashlight.shadow.mapSize.height = 512;
 flashlight.shadow.camera.near = 0.25;
-flashlight.shadow.camera.far = 22;
+flashlight.shadow.camera.far = 24;
 flashlight.shadow.bias = -0.001;
 const flashlightTarget = new THREE.Object3D();
 scene.add(flashlight);
 scene.add(flashlightTarget);
 flashlight.target = flashlightTarget;
 
-const playerGlow = new THREE.PointLight(0xdce8fa, 2.2, 11.0, 1.4);
+// 懐中電灯の手持ち慣性追従用ベクトル
+const smoothFlashDir = new THREE.Vector3(0, 0, -1);
+
+const playerGlow = new THREE.PointLight(0xdce8fa, 2.3, 11.5, 1.38);
 scene.add(playerGlow);
 
 // =========================================================================
@@ -371,12 +392,13 @@ const cutscenes = new CutsceneDirector(
   }
 );
 
-// 起動時に全マテリアル＆敵モデルのシェーダーを一括プリコンパイル（プレイ中の途中ロード・フリーズを完全ゼロ化！）
+// 起動時に全マテリアル・敵モデル・ポストプロセスのシェーダーを一括プリコンパイル（途中ロード完全ゼロ化！）
 {
   const prevEnemyVis = enemy.group.visible;
   enemy.group.visible = true;
   schoolMap.updateLights(0, player.pos);
   renderer.compile(scene, camera);
+  postFX.render(scene, camera, 0, 0);
   enemy.group.visible = prevEnemyVis;
 }
 
@@ -476,9 +498,9 @@ function resetGame() {
   story.notesFound.clear();
 
   // 夜の暗闇に戻す
-  scene.fog.density = 0.048;
-  scene.fog.color.setHex(0x050811);
-  ambient.intensity = 0.58;
+  scene.fog.density = 0.046;
+  scene.fog.color.setHex(0x050912);
+  ambient.intensity = 0.48;
 
   for (const d of schoolMap.doors) {
     d.isOpen = false;
@@ -942,24 +964,44 @@ function updatePlayer(dt) {
   }
 
   const eyeH = player.crouching ? 0.95 : 1.56;
-  const bobOffset = isMoving ? Math.sin(player.bobTime) * (wantsRun ? 0.065 : 0.038) : 0;
-  camera.position.set(player.pos.x, player.pos.y + eyeH + bobOffset, player.pos.z);
+  const nowSec = performance.now() * 0.001;
+  // 本物のボディカム風：微細な呼吸揺れ＋歩行8の字ボブ＋左右ストレーフ傾き！
+  const breathY = Math.sin(nowSec * 1.6) * 0.008;
+  const breathRoll = Math.sin(nowSec * 0.9) * 0.005;
+  const bobAmp = wantsRun ? 0.068 : player.crouching ? 0.022 : 0.04;
+  const bobY = isMoving ? Math.sin(player.bobTime) * bobAmp : 0;
+  const bobX = isMoving ? Math.cos(player.bobTime * 0.5) * (wantsRun ? 0.042 : 0.022) : 0;
+  const walkRoll = isMoving ? Math.cos(player.bobTime * 0.5) * (wantsRun ? 0.024 : 0.011) : 0;
+
+  let strafeInput = 0;
+  if (keys['KeyD'] || keys['ArrowRight']) strafeInput += 1;
+  if (keys['KeyA'] || keys['ArrowLeft']) strafeInput -= 1;
+  if (Math.abs(touchJoy.x) > 0.1) strafeInput += touchJoy.x;
+  const targetRoll = (ps1Mode ? 0 : (breathRoll + walkRoll - strafeInput * 0.022));
+  camera.rotation.z += (targetRoll - camera.rotation.z) * Math.min(1, dt * 10);
+
+  camera.position.set(
+    player.pos.x + right.x * bobX,
+    player.pos.y + eyeH + bobY + breathY,
+    player.pos.z + right.z * bobX
+  );
 
   camera.rotation.order = 'YXZ';
   camera.rotation.y = player.yaw;
   camera.rotation.x = player.pitch;
 
   flashlight.intensity = player.flashlightOn ? FLASHLIGHT_POWER : 0;
-  playerGlow.intensity = player.flashlightOn ? 2.2 : 0.32;
-  playerGlow.distance = player.flashlightOn ? 11.0 : 4.5;
+  playerGlow.intensity = player.flashlightOn ? 2.3 : 0.3;
+  playerGlow.distance = player.flashlightOn ? 11.5 : 4.5;
   if (player.flashlightOn) {
-    const dir = new THREE.Vector3(0, 0, -1).applyEuler(camera.rotation);
+    const rawDir = new THREE.Vector3(0, 0, -1).applyEuler(camera.rotation);
+    // 手持ち懐中電灯の滑らかな慣性追従ラグ（振り向いたときの実写感！）
+    smoothFlashDir.lerp(rawDir, Math.min(1, dt * 13.5)).normalize();
     const rightVec = new THREE.Vector3(1, 0, 0).applyEuler(camera.rotation);
-    // 壁際でも懐中電灯が壁の裏に突き抜けないようオフセットを小さく抑える
     flashlight.position.copy(camera.position)
-      .addScaledVector(rightVec, 0.07)
-      .add(new THREE.Vector3(0, -0.08 + bobOffset * 0.4, 0));
-    flashlightTarget.position.copy(camera.position).addScaledVector(dir, 10);
+      .addScaledVector(rightVec, 0.08)
+      .add(new THREE.Vector3(0, -0.09 + bobY * 0.5, 0));
+    flashlightTarget.position.copy(camera.position).addScaledVector(smoothFlashDir, 10);
   }
   playerGlow.position.copy(camera.position);
 
@@ -1533,6 +1575,19 @@ function drawSchoolMap2D() {
 // メインループ
 // =========================================================================
 let lastTime = performance.now();
+let currentDangerLevel = 0;
+let bcHudTimer = 0;
+
+function formatBodycamTime() {
+  const d = new Date();
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+
+function makeMeterBar(level) {
+  const filled = Math.max(1, Math.min(7, Math.round(level * 7)));
+  return '■'.repeat(filled) + '□'.repeat(7 - filled);
+}
 
 function animate(now) {
   requestAnimationFrame(animate);
@@ -1552,9 +1607,19 @@ function animate(now) {
   if (gameState === 'playing') {
     const pState = updatePlayer(dt);
 
-    areaLabel.textContent = player.hiding
-      ? `${schoolMap.getAreaName(player.pos.x, player.pos.y, player.pos.z)}（ロッカー内）`
-      : schoolMap.getAreaName(player.pos.x, player.pos.y, player.pos.z);
+    const areaName = schoolMap.getAreaName(player.pos.x, player.pos.y, player.pos.z);
+    areaLabel.textContent = player.hiding ? `${areaName}（ロッカー内）` : areaName;
+
+    // ボディカムHUDのリアルタイム時刻・エリア・L/Rオーディオメーター更新
+    bcHudTimer -= dt;
+    if (bcHudTimer <= 0 && !ps1Mode) {
+      bcHudTimer = 0.12;
+      if (bcClockEl) bcClockEl.textContent = formatBodycamTime();
+      if (bcCamAreaEl) bcCamAreaEl.textContent = `CAM 02 / ${areaName}`;
+      const baseAudio = (pState.running ? 0.62 : 0.18) + currentDangerLevel * 0.45;
+      if (bcMeterL) bcMeterL.textContent = makeMeterBar(baseAudio + Math.random() * 0.22);
+      if (bcMeterR) bcMeterR.textContent = makeMeterBar(baseAudio + Math.random() * 0.22);
+    }
 
     if (mapOpen) drawSchoolMap2D();
 
@@ -1676,8 +1741,10 @@ function animate(now) {
     audio.update(dt, enemyDist, enemy.active);
     if (enemy.active && enemyDist < 16) {
       const danger = Math.max(0, Math.min(1, 1 - enemyDist / 16));
+      currentDangerLevel = danger;
       dangerVignette.style.opacity = (danger * 0.85).toFixed(2);
     } else {
+      currentDangerLevel = 0;
       dangerVignette.style.opacity = '0';
     }
 
@@ -1710,7 +1777,7 @@ function animate(now) {
     }
   }
 
-  renderer.render(scene, camera);
+  postFX.render(scene, camera, now * 0.001, currentDangerLevel);
 }
 
 requestAnimationFrame(animate);

@@ -66,81 +66,127 @@ export function buildSchoolMap(scene, textures) {
     return entry;
   }
 
-  // 共通PBRマテリアル（リアルな質感・光沢・凹凸）
+  // 共通PBRマテリアル（法線マップ＋濡れラフネス＋環境マップ反射でフォトリアル化！）
   const mats = {
     wall: new THREE.MeshStandardMaterial({
       map: textures.schoolWall,
-      bumpMap: textures.plasterBump,
-      bumpScale: 0.028,
-      roughness: 0.88,
-      metalness: 0.02
+      normalMap: textures.schoolWallNormal,
+      normalScale: new THREE.Vector2(0.85, 0.85),
+      roughness: 0.84,
+      metalness: 0.04,
+      envMapIntensity: 0.55
     }),
     annexWall: new THREE.MeshStandardMaterial({
       map: textures.annexWall,
-      bumpMap: textures.plasterBump,
-      bumpScale: 0.036,
-      roughness: 0.9,
-      metalness: 0.02
+      normalMap: textures.annexWallNormal,
+      normalScale: new THREE.Vector2(1.15, 1.15),
+      roughness: 0.82,
+      metalness: 0.05,
+      envMapIntensity: 0.6
     }),
     extWall: new THREE.MeshStandardMaterial({
       map: textures.exteriorWall,
-      bumpMap: textures.plasterBump,
-      bumpScale: 0.04,
-      roughness: 0.92
+      normalMap: textures.plasterNormal,
+      normalScale: new THREE.Vector2(0.9, 0.9),
+      roughness: 0.9,
+      envMapIntensity: 0.45
     }),
     corridorFloor: new THREE.MeshStandardMaterial({
       map: textures.corridorFloor,
+      normalMap: textures.corridorFloorNormal,
+      normalScale: new THREE.Vector2(0.75, 0.75),
       roughnessMap: textures.corridorRoughness,
-      roughness: 0.42,
-      metalness: 0.08
+      roughness: 0.62,
+      metalness: 0.14,
+      envMapIntensity: 1.35
     }),
     woodFloor: new THREE.MeshStandardMaterial({
       map: textures.woodFloor,
-      bumpMap: textures.woodFloor,
-      bumpScale: 0.018,
-      roughness: 0.54,
-      metalness: 0.04
+      normalMap: textures.woodFloorNormal,
+      normalScale: new THREE.Vector2(0.8, 0.8),
+      roughness: 0.46,
+      metalness: 0.08,
+      envMapIntensity: 0.95
     }),
     ceiling: new THREE.MeshStandardMaterial({
       map: textures.ceiling,
-      roughness: 0.94,
-      metalness: 0.0
+      normalMap: textures.ceilingNormal,
+      normalScale: new THREE.Vector2(0.6, 0.6),
+      roughness: 0.92,
+      metalness: 0.02,
+      envMapIntensity: 0.35
     }),
     stair: new THREE.MeshStandardMaterial({
       map: textures.stair,
-      roughness: 0.72,
-      metalness: 0.08
+      normalMap: textures.plasterNormal,
+      normalScale: new THREE.Vector2(0.65, 0.65),
+      roughness: 0.62,
+      metalness: 0.12,
+      envMapIntensity: 0.85
     }),
     door: new THREE.MeshStandardMaterial({
       map: textures.door,
-      roughness: 0.62,
-      metalness: 0.05
+      normalMap: textures.doorNormal,
+      normalScale: new THREE.Vector2(0.85, 0.85),
+      roughness: 0.52,
+      metalness: 0.08,
+      envMapIntensity: 0.85
     }),
     windowGlass: new THREE.MeshStandardMaterial({
       map: textures.windowGlass,
-      roughness: 0.12,
-      metalness: 0.2,
+      roughness: 0.08,
+      metalness: 0.35,
       transparent: true,
-      opacity: 0.56,
-      side: THREE.DoubleSide
+      opacity: 0.58,
+      side: THREE.DoubleSide,
+      envMapIntensity: 1.5
     }),
-    woodDark: new THREE.MeshStandardMaterial({ color: 0x3b2a1c, roughness: 0.68, metalness: 0.04 }),
-    woodMid: new THREE.MeshStandardMaterial({ color: 0x62462e, roughness: 0.62, metalness: 0.04 }),
-    metalDark: new THREE.MeshStandardMaterial({ color: 0x3b4248, roughness: 0.38, metalness: 0.62 }),
-    locker: new THREE.MeshStandardMaterial({ color: 0x4b5752, roughness: 0.42, metalness: 0.55 }),
-    lockerDoor: new THREE.MeshStandardMaterial({ map: textures.lockerDoor, roughness: 0.42, metalness: 0.52 }),
-    blackboard: new THREE.MeshStandardMaterial({ map: textures.blackboard, roughness: 0.84, metalness: 0.02 }),
-    musicBlackboard: new THREE.MeshStandardMaterial({ map: textures.musicBlackboard, roughness: 0.84, metalness: 0.02 }),
-    sealedLocker: new THREE.MeshStandardMaterial({ map: textures.sealedLocker, roughness: 0.82, metalness: 0.1 }),
-    plaster: new THREE.MeshStandardMaterial({ color: 0xd8d5cb, roughness: 0.78, metalness: 0.02 }),
-    pianoBlack: new THREE.MeshStandardMaterial({ color: 0x101116, roughness: 0.14, metalness: 0.14 }),
-    pianoKeys: new THREE.MeshStandardMaterial({ color: 0xebe8dc, roughness: 0.28, metalness: 0.02 }),
+    woodDark: new THREE.MeshStandardMaterial({ color: 0x3b2a1c, roughness: 0.62, metalness: 0.05, envMapIntensity: 0.7 }),
+    woodMid: new THREE.MeshStandardMaterial({ color: 0x62462e, roughness: 0.56, metalness: 0.05, envMapIntensity: 0.7 }),
+    metalDark: new THREE.MeshStandardMaterial({ color: 0x384047, roughness: 0.32, metalness: 0.72, envMapIntensity: 1.25 }),
+    pipeMetal: new THREE.MeshStandardMaterial({ color: 0x454d54, roughness: 0.28, metalness: 0.82, envMapIntensity: 1.35 }),
+    locker: new THREE.MeshStandardMaterial({ color: 0x4b5752, roughness: 0.36, metalness: 0.62, envMapIntensity: 1.15 }),
+    lockerDoor: new THREE.MeshStandardMaterial({
+      map: textures.lockerDoor,
+      normalMap: textures.lockerDoorNormal,
+      normalScale: new THREE.Vector2(0.95, 0.95),
+      roughness: 0.38,
+      metalness: 0.58,
+      envMapIntensity: 1.2
+    }),
+    vendingFront: new THREE.MeshStandardMaterial({
+      map: textures.vendingFront,
+      emissive: 0xffffff,
+      emissiveMap: textures.vendingEmissive,
+      emissiveIntensity: 1.45,
+      roughness: 0.26,
+      metalness: 0.28,
+      envMapIntensity: 1.2
+    }),
+    vendingSide: new THREE.MeshStandardMaterial({ color: 0x7c7a72, roughness: 0.42, metalness: 0.45, envMapIntensity: 1.0 }),
+    bulletin: new THREE.MeshStandardMaterial({ map: textures.bulletinBoard, roughness: 0.85, metalness: 0.02 }),
+    extinguisherRed: new THREE.MeshStandardMaterial({ color: 0xa8161a, roughness: 0.26, metalness: 0.35, envMapIntensity: 1.2 }),
+    puddle: new THREE.MeshStandardMaterial({
+      color: 0x0b1016,
+      roughness: 0.04,
+      metalness: 0.45,
+      transparent: true,
+      opacity: 0.58,
+      envMapIntensity: 2.2
+    }),
+    sconceBulb: new THREE.MeshStandardMaterial({ color: 0xffd296, emissive: 0xff942e, emissiveIntensity: 2.6, roughness: 0.2 }),
+    blackboard: new THREE.MeshStandardMaterial({ map: textures.blackboard, roughness: 0.82, metalness: 0.02 }),
+    musicBlackboard: new THREE.MeshStandardMaterial({ map: textures.musicBlackboard, roughness: 0.82, metalness: 0.02 }),
+    sealedLocker: new THREE.MeshStandardMaterial({ map: textures.sealedLocker, roughness: 0.78, metalness: 0.12 }),
+    plaster: new THREE.MeshStandardMaterial({ color: 0xd8d5cb, roughness: 0.74, metalness: 0.02 }),
+    pianoBlack: new THREE.MeshStandardMaterial({ color: 0x101116, roughness: 0.1, metalness: 0.22, envMapIntensity: 1.6 }),
+    pianoKeys: new THREE.MeshStandardMaterial({ color: 0xebe8dc, roughness: 0.24, metalness: 0.02 }),
     curtain: new THREE.MeshStandardMaterial({ color: 0x99a69f, roughness: 0.92, side: THREE.DoubleSide }),
-    exitSign: new THREE.MeshStandardMaterial({ color: 0x1c7d3c, emissive: 0x2de068, emissiveIntensity: 1.4, roughness: 0.3 }),
-    fluorescentOn: new THREE.MeshStandardMaterial({ color: 0xe8f6ff, emissive: 0xc2e6ff, emissiveIntensity: 1.4, roughness: 0.2 }),
+    exitSign: new THREE.MeshStandardMaterial({ color: 0x1c7d3c, emissive: 0x2de068, emissiveIntensity: 1.8, roughness: 0.25 }),
+    fluorescentOn: new THREE.MeshStandardMaterial({ color: 0xe8f9ff, emissive: 0xaeeeff, emissiveIntensity: 2.0, roughness: 0.18 }),
     fluorescentOff: new THREE.MeshStandardMaterial({ color: 0x363b3e, roughness: 0.5, metalness: 0.2 }),
-    ground: new THREE.MeshStandardMaterial({ map: textures.ground, roughness: 0.96, metalness: 0.0 }),
-    pouch: new THREE.MeshStandardMaterial({ color: 0xc42840, emissive: 0x4a0b15, roughness: 0.6 }),
+    ground: new THREE.MeshStandardMaterial({ map: textures.ground, roughness: 0.94, metalness: 0.0 }),
+    pouch: new THREE.MeshStandardMaterial({ color: 0xc42840, emissive: 0x4a0b15, roughness: 0.55 }),
     paper: new THREE.MeshStandardMaterial({ color: 0xe6dfc8, emissive: 0x1a1810, roughness: 0.85 })
   };
 
@@ -163,6 +209,12 @@ export function buildSchoolMap(scene, textures) {
     clonedTex.needsUpdate = true;
     clonedTex.repeat.set(sx, sy);
     clonedMat.map = clonedTex;
+    if (baseMat.normalMap) {
+      const nTex = baseMat.normalMap.clone();
+      nTex.needsUpdate = true;
+      nTex.repeat.set(sx, sy);
+      clonedMat.normalMap = nTex;
+    }
     if (baseMat.roughnessMap) {
       const rTex = baseMat.roughnessMap.clone();
       rTex.needsUpdate = true;
@@ -362,7 +414,45 @@ export function buildSchoolMap(scene, textures) {
     }
   }
 
-  // 廊下の蛍光灯（仮想ライト＋共有マテリアルで超軽量＆途中ロードゼロ！）
+  // 光源の空気ハレーション・グロー（負荷極小のAdditiveスプライトで実写レンズの滲みを再現！）
+  const glowMatCache = new Map();
+  function addGlowSprite(x, y, z, colorHex, scale = 2.4, opacity = 0.34) {
+    const key = `${colorHex}_${opacity}`;
+    let sMat = glowMatCache.get(key);
+    if (!sMat) {
+      sMat = new THREE.SpriteMaterial({
+        map: textures.lightGlow,
+        color: colorHex,
+        transparent: true,
+        opacity,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
+      });
+      glowMatCache.set(key, sMat);
+    }
+    const sp = new THREE.Sprite(sMat);
+    sp.position.set(x, y, z);
+    sp.scale.set(scale, scale, 1);
+    mapGroup.add(sp);
+    return sp;
+  }
+
+  // 暖かいアンバーの壁掛けケージランプ（参考ポストの寒色×暖色コントラストを演出！）
+  const sconceBaseGeo = new THREE.BoxGeometry(0.12, 0.28, 0.14);
+  const sconceBulbGeo = new THREE.CylinderGeometry(0.055, 0.055, 0.18, 8);
+  function addWallSconce(x, floorY, z, faceDirX = 0, faceDirZ = 1) {
+    const sy = floorY + 2.38;
+    const base = new THREE.Mesh(sconceBaseGeo, mats.metalDark);
+    base.position.set(x, sy, z);
+    mapGroup.add(base);
+    const bulb = new THREE.Mesh(sconceBulbGeo, mats.sconceBulb);
+    bulb.position.set(x + faceDirX * 0.08, sy, z + faceDirZ * 0.08);
+    mapGroup.add(bulb);
+    addGlowSprite(x + faceDirX * 0.16, sy, z + faceDirZ * 0.16, 0xff9b3d, 2.3, 0.42);
+    addVirtualLight(x + faceDirX * 0.35, sy - 0.1, z + faceDirZ * 0.35, 0xff9436, 2.4, 12.5, 1.5);
+  }
+
+  // 廊下の蛍光灯（冷たいシアン白色＋グローハレーション＋仮想ライトで途中ロードゼロ！）
   const fixtureGeo = new THREE.BoxGeometry(1.22, 0.05, 0.26);
   const barGeo = new THREE.BoxGeometry(1.12, 0.06, 0.16);
   function addFluorescent(x, floorY, z, mode = 'dim') {
@@ -380,22 +470,99 @@ export function buildSchoolMap(scene, textures) {
     mapGroup.add(bar);
 
     if (mode === 'flicker' || mode === 'on') {
-      const baseInt = mode === 'on' ? 1.8 : 1.45;
-      const vLight = addVirtualLight(x, y - 0.28, z, 0xbce0ff, baseInt, 14.5, 1.55);
+      const baseInt = mode === 'on' ? 2.1 : 1.75;
+      const vLight = addVirtualLight(x, y - 0.28, z, 0x9ce8ff, baseInt, 15.0, 1.5);
+      addGlowSprite(x, y - 0.14, z, 0x8be4ff, 2.8, mode === 'on' ? 0.34 : 0.26);
       if (mode === 'flicker') {
         flickers.push({ light: vLight, bar, baseIntensity: baseInt, timer: Math.random() * 2 });
       }
     }
   }
 
-  // 緑の非常口誘導灯（仮想ライト利用）
+  // 日本の夜の自動販売機「ヨルコーラ」（参考ポストへのオマージュ・暗闇のランドマーク！）
+  function addVendingMachine(x, floorY, z, rotY = 0) {
+    const g = new THREE.Group();
+    const body = new THREE.Mesh(new THREE.BoxGeometry(1.06, 1.92, 0.72), [
+      mats.vendingSide, mats.vendingSide, mats.vendingSide, mats.vendingSide,
+      mats.vendingFront, mats.vendingSide
+    ]);
+    body.position.y = 0.96;
+    g.add(body);
+    g.position.set(x, floorY, z);
+    g.rotation.y = rotY;
+    mapGroup.add(g);
+
+    const fwdX = Math.sin(rotY);
+    const fwdZ = Math.cos(rotY);
+    addGlowSprite(x + fwdX * 0.55, floorY + 1.28, z + fwdZ * 0.55, 0x8ad8ff, 2.8, 0.35);
+    addVirtualLight(x + fwdX * 0.85, floorY + 1.35, z + fwdZ * 0.85, 0x8cd8ff, 2.6, 10.5, 1.45);
+
+    const halfX = Math.abs(Math.cos(rotY)) * 0.53 + Math.abs(Math.sin(rotY)) * 0.36;
+    const halfZ = Math.abs(Math.sin(rotY)) * 0.53 + Math.abs(Math.cos(rotY)) * 0.36;
+    colliders.push({
+      minX: x - halfX, maxX: x + halfX,
+      minY: floorY, maxY: floorY + 1.92,
+      minZ: z - halfZ, maxZ: z + halfZ
+    });
+  }
+
+  // 廊下小道具ヘルパー（掲示板・赤い消火器・床の濡れた水たまり・月光ライトシャフト・天井配管）
+  const extBodyGeo = new THREE.CylinderGeometry(0.085, 0.085, 0.52, 10);
+  const extCapGeo = new THREE.CylinderGeometry(0.03, 0.04, 0.1, 8);
+  function addExtinguisher(x, floorY, z) {
+    const b = new THREE.Mesh(extBodyGeo, mats.extinguisherRed);
+    b.position.set(x, floorY + 0.26, z);
+    mapGroup.add(b);
+    const cap = new THREE.Mesh(extCapGeo, mats.metalDark);
+    cap.position.set(x, floorY + 0.56, z);
+    mapGroup.add(cap);
+  }
+
+  const bulletinGeo = new THREE.BoxGeometry(1.55, 0.98, 0.05);
+  function addBulletinBoard(x, floorY, z, rotY = 0) {
+    const m = new THREE.Mesh(bulletinGeo, mats.bulletin);
+    m.position.set(x, floorY + 1.72, z);
+    m.rotation.y = rotY;
+    mapGroup.add(m);
+  }
+
+  const puddleGeo = new THREE.CircleGeometry(1.0, 14);
+  function addFloorPuddle(x, floorY, z, sx = 1.1, sz = 0.85, rot = 0) {
+    const p = new THREE.Mesh(puddleGeo, mats.puddle);
+    p.rotation.x = -Math.PI / 2;
+    p.rotation.z = rot;
+    p.scale.set(sx, sz, 1);
+    p.position.set(x, floorY + 0.012, z);
+    mapGroup.add(p);
+  }
+
+  const godRayMat = new THREE.MeshBasicMaterial({
+    map: textures.godRay,
+    transparent: true,
+    opacity: 0.22,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+    side: THREE.DoubleSide
+  });
+  const godRayGeo = new THREE.PlaneGeometry(3.2, 4.4);
+  function addMoonlightShaft(x, floorY, z, rotY = 0, tiltX = 0.52) {
+    const ray = new THREE.Mesh(godRayGeo, godRayMat);
+    ray.position.set(x, floorY + 1.55, z);
+    ray.rotation.order = 'YXZ';
+    ray.rotation.y = rotY;
+    ray.rotation.x = tiltX;
+    mapGroup.add(ray);
+  }
+
+  // 緑の非常口誘導灯（仮想ライト＋グロー利用）
   const exitSignGeo = new THREE.BoxGeometry(0.65, 0.28, 0.08);
   function addExitSign(x, floorY, z, rotY = 0) {
     const sign = new THREE.Mesh(exitSignGeo, mats.exitSign);
     sign.position.set(x, floorY + 2.8, z);
     sign.rotation.y = rotY;
     mapGroup.add(sign);
-    addVirtualLight(x, floorY + 2.6, z, 0x28ff66, 1.1, 7.5, 1.7);
+    addGlowSprite(x, floorY + 2.75, z, 0x28ff66, 1.8, 0.36);
+    addVirtualLight(x, floorY + 2.6, z, 0x28ff66, 1.35, 8.2, 1.6);
   }
 
   // 教室の机・椅子セット（ジオメトリ共有＋軽量フレームでドローコール＆メモリ大幅削減！）
@@ -600,6 +767,32 @@ export function buildSchoolMap(scene, textures) {
     mapGroup.add(leaves2);
   });
 
+  // --- 夜の遠景ビルシルエット＆窓明かり（窓の外を見たときのリアルな夜景！） ---
+  const skylineMat = new THREE.MeshBasicMaterial({ color: 0x090e18, fog: false });
+  const winGlowWarm = new THREE.MeshBasicMaterial({ color: 0xffcf87, fog: false });
+  const winGlowCool = new THREE.MeshBasicMaterial({ color: 0x99ccff, fog: false });
+  const buildings = [
+    [-34, 48, 12, 22, 10], [-14, 54, 15, 32, 10], [8, 52, 14, 28, 10],
+    [28, 50, 16, 36, 10], [52, 42, 12, 26, 12], [-50, 10, 12, 24, 14],
+    [-48, -28, 14, 30, 12], [12, -52, 18, 28, 12], [68, -10, 14, 34, 16]
+  ];
+  buildings.forEach(([bx, bz, bw, bh, bd], bi) => {
+    const bMesh = new THREE.Mesh(new THREE.BoxGeometry(bw, bh, bd), skylineMat);
+    bMesh.position.set(bx, bh / 2 - 0.5, bz);
+    mapGroup.add(bMesh);
+    // ランダムに光る遠くのマンション／ビルの窓明かり
+    for (let w = 0; w < 6; w++) {
+      const wm = new THREE.Mesh(
+        new THREE.PlaneGeometry(0.9, 1.1),
+        (bi + w) % 3 === 0 ? winGlowCool : winGlowWarm
+      );
+      const faceZ = bz > 0 ? bz - bd / 2 - 0.1 : bz + bd / 2 + 0.1;
+      wm.position.set(bx - bw * 0.35 + ((w * 2.3) % (bw * 0.7)), 6 + (w * 3.8) % (bh - 8), faceZ);
+      if (bz > 0) wm.rotation.y = Math.PI;
+      mapGroup.add(wm);
+    }
+  });
+
   // =========================================================================
   // 2. 本館 1F〜3F（コの字型：北棟・西棟・東棟）
   // =========================================================================
@@ -748,14 +941,46 @@ export function buildSchoolMap(scene, textures) {
       ]);
     }
 
-    // --- 各階廊下の蛍光灯 ---
+    // --- 各階廊下の蛍光灯（冷色シアン）＋暖かいアンバー壁掛けケージランプ（色温度コントラスト！） ---
     addFluorescent(-8, y, -8, f === 1 ? 'flicker' : 'on');
     addFluorescent(2, y, -8, f === 2 ? 'flicker' : 'dim');
     addFluorescent(12, y, -8, f === 0 ? 'on' : 'flicker');
     addFluorescent(-12, y, 4, f === 1 ? 'flicker' : 'dim');
     addFluorescent(12, y, 4, f === 0 ? 'on' : 'dim');
     addFluorescent(12, y, 12, f === 0 ? 'on' : 'flicker');
+
+    // 暖かいアンバーの壁掛けランプ（曲がり角＆廊下アクセント）
+    addWallSconce(-13.78, y, -7.8, 1, 0);
+    addWallSconce(13.78, y, 0.2, -1, 0);
+    addWallSconce(3.9, y, -9.78, 0, 1);
+
+    // 天井の露出金属配管パイプ（壁際を走らせて建築リアリティ大幅アップ！）
+    const pipeN = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 42, 8), mats.pipeMetal);
+    pipeN.rotation.z = Math.PI / 2;
+    pipeN.position.set(0, y + FLOOR_H - 0.24, -9.68);
+    mapGroup.add(pipeN);
+    const pipeE = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 21, 8), mats.pipeMetal);
+    pipeE.rotation.x = Math.PI / 2;
+    pipeE.position.set(13.68, y + FLOOR_H - 0.24, 5);
+    mapGroup.add(pipeE);
+
+    // 廊下の窓から差し込む青白い月光ライトシャフト＆濡れた床の水たまり反射！
+    addMoonlightShaft(-3.5, y, -6.9, 0, 0.48);
+    addMoonlightShaft(5.5, y, -6.9, 0, 0.48);
+    addMoonlightShaft(10.8, y, 3.5, -Math.PI / 2, 0.48);
+    addFloorPuddle(12.0, y, 6.2, 1.15, 0.8, 0.4);
+    addFloorPuddle(1.5, y, -7.8, 1.35, 0.72, -0.2);
+    addFloorPuddle(-11.8, y, 2.5, 1.0, 0.85, 0.7);
+
+    // 廊下壁際の掲示板＆赤い消火器（通行の邪魔ゼロ）
+    addBulletinBoard(-0.8, y, -9.82, 0);
+    addExtinguisher(13.62, y, -6.6);
+    addExtinguisher(-13.62, y, -6.6);
   }
+
+  // 日本の夜の自動販売機「ヨルコーラ / YORU COLA」（参考ポストオマージュ！暗闇の美しい光源）
+  addVendingMachine(4.2, 0, -9.42, 0);        // 1F 北棟廊下（ドアとロッカーの間の壁際）
+  addVendingMachine(13.48, 4, -4.2, -Math.PI / 2); // 2F 東棟・渡り廊下手前の壁際
 
   // 本館階段（1F->2F, 2F->3F）
   addStairUnit(-22, -14, -10, -18, 0); // 西階段 1->2
@@ -832,6 +1057,9 @@ export function buildSchoolMap(scene, textures) {
         { center: 7.0, width: 1.9, hasDoor: true, label: '旧倉庫', signSide: -1 }
       ]);
       addFluorescent(35, 0, 3, 'flicker');
+      addWallSconce(37.78, 0, -0.5, -1, 0);
+      addFloorPuddle(35.0, 0, 1.2, 1.25, 0.85, 0.3);
+      addExtinguisher(37.62, 0, 9.2);
     } else {
       // 2F：音楽室(X=38..46, Z=-10..4) ＋ 音楽準備室(X=38..46, Z=4..10)
       addWallWithOpenings('x', 4, 38, 46, y, mats.annexWall, [
@@ -843,6 +1071,9 @@ export function buildSchoolMap(scene, textures) {
       ]);
       addFluorescent(35, 4, 3, 'flicker');
       addFluorescent(42, 4, -2, 'dim');
+      addWallSconce(37.78, 4, -0.5, -1, 0);
+      addFloorPuddle(35.0, 4, 1.6, 1.2, 0.8, -0.4);
+      addMoonlightShaft(27, 4, -1.1, 0, 0.5);
     }
   }
 

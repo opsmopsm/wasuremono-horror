@@ -41,13 +41,36 @@
 
   <!-- プレイ中HUD -->
   <div id="hud" class="hidden">
+    <!-- ボディカム実写風オーバーレイHUD（PS1モード時は自動非表示） -->
+    <div id="bodycam-hud">
+      <div class="bc-top-left">
+        <div>BODYCAM V3.2.1</div>
+        <div>UNIT 0417 // NIGHT SCHOOL</div>
+      </div>
+      <div class="bc-top-right">
+        <div class="bc-rec"><span class="rec-dot"></span>REC</div>
+        <div id="bc-clock">2026-11-26 22:14:00</div>
+        <div id="bc-cam-area">CAM 01 / 1F MAIN HALL</div>
+      </div>
+      <div class="bc-bottom-left">
+        <div><span class="bc-batt">▮▮▮▯</span> 92%</div>
+        <div>1536P</div>
+        <div>FOV 84°</div>
+        <div>ISO 800</div>
+      </div>
+      <div class="bc-bottom-right">
+        <div class="bc-meter-row"><span>L</span><span id="bc-meter-l" class="bc-meter">■■■□□□□</span></div>
+        <div class="bc-meter-row"><span>R</span><span id="bc-meter-r" class="bc-meter">■■■□□□□</span></div>
+      </div>
+    </div>
+
     <div id="top-left">
       <div id="area-label">1F メイン昇降口</div>
       <div id="objective-label">目標: 2F 2年A組で忘れ物を探す</div>
     </div>
 
     <div id="top-right">
-      <div id="quality-badge">画質: PS1風 [P]</div>
+      <div id="quality-badge">画質: ボディカム・リアル [P]</div>
       <div class="hint-line">[M] 見取り図 / [F] 懐中電灯 / [C] しゃがむ / [E] 隠れる・話す</div>
     </div>
 
@@ -108,7 +131,7 @@
   <!-- タイトル画面 -->
   <div id="title-screen" class="overlay-screen">
     <div class="title-card">
-      <p class="eyebrow">PS1 STYLE SHORT HORROR — COMPLETE EDITION</p>
+      <p class="eyebrow">BODYCAM REALISTIC HORROR — COMPLETE EDITION</p>
       <h1>忘 れ 物</h1>
       <p class="story-lead">
         吹奏楽部の片付けで遅くなった帰り道。<br />
